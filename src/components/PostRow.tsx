@@ -7,6 +7,7 @@ import type {
   StreamingCapture,
 } from "../lib/types";
 import PostDetail from "./PostDetail";
+import { brandPath, navigate } from "../lib/router";
 
 const NETWORK_LABEL: Record<string, string> = {
   instagram: "Instagram",
@@ -20,7 +21,7 @@ const NETWORK_LABEL: Record<string, string> = {
  * and start 404ing after a while, so a failed load swaps to a neutral tile
  * of the same size — never a broken-image glyph, never a layout shift.
  */
-function Thumb({ url }: { url: string | null }) {
+export function Thumb({ url }: { url: string | null }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
@@ -85,7 +86,16 @@ export default function PostRow(props: {
 
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[15px] font-semibold">{post.brand_name}</span>
+            <a
+              href={brandPath(post.brand_name)}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(brandPath(post.brand_name));
+              }}
+              className="text-[15px] font-semibold hover:underline"
+            >
+              {post.brand_name}
+            </a>
             <span className="text-xs text-dim">
               {NETWORK_LABEL[post.network] ?? post.network}{" "}
               {post.content_type === "posts"

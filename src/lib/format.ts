@@ -48,3 +48,10 @@ export function fullDate(iso: string): string {
     month: "long",
   });
 }
+
+export function monthYear(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "numeric",
+  });
+}

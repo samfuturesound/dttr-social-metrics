@@ -42,6 +42,16 @@ maintains itself. The session persists per browser.
   `mx_assert_internal()` in the database). Other authenticated users of the
   shared project get zero rows; the anon key alone gets permission denied.
 
+## Brand pages
+
+`/brand/[name]` (tiny in-house router — the SPA rewrite in vercel.json makes
+deep links work). Header figures from `mx_brand_summary`; sections from
+`mx_post_detail`, including the weighted-engagement views (like 1, comment 3,
+save 5, share 5, follow 10, per 100 views). Design rule for these pages: never
+threshold or scale against roster-wide numbers — every figure sits next to the
+account's own median, because the roster spans two orders of magnitude in
+reach.
+
 ## Data notes
 
 - Flagged posts come from `mx_flagged_interim` (median-based, works on

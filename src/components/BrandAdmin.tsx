@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { addBrand, setBrandActive } from "../lib/data";
+import { brandPath, navigate } from "../lib/router";
 import type { Brand } from "../lib/types";
 
 const inputCls =
@@ -77,7 +78,17 @@ export default function BrandAdmin(props: {
           {props.brands.map((b) => (
             <li key={b.id} className="flex items-baseline justify-between py-2.5 text-sm">
               <span className={b.active ? "" : "text-dim line-through"}>
-                {b.name}
+                <a
+                  href={brandPath(b.name)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    props.onClose();
+                    navigate(brandPath(b.name));
+                  }}
+                  className="hover:underline"
+                >
+                  {b.name}
+                </a>
                 <span className="ml-2 text-xs text-dim">
                   {b.brand_type} · {b.metricool_blog_id}
                 </span>

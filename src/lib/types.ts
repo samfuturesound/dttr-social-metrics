@@ -100,3 +100,36 @@ export interface AccountScore {
   total_views: number;
   best_multiple: number | null;
 }
+
+/** mx_post_detail row — every post, all history, engagement columns included. */
+export interface PostDetail extends FlaggedPost {
+  follows: number | null;
+  reach: number | null;
+  duration_seconds: number | null;
+  weighted_engagement: number | null;
+  engagement_rate: number | null;
+  completion_pct: number | null;
+  engagement_multiple: number | null;
+  median_engagement_rate: number | null;
+  median_completion_pct: number | null;
+}
+
+/** mx_brand_summary row — per-brand headline figures. */
+export interface BrandSummary {
+  brand_id: number;
+  brand_name: string;
+  brand_type: BrandType;
+  owner: string | null;
+  niche: string | null;
+  active: boolean;
+  metricool_blog_id: string;
+  posts_all_time: number;
+  views_all_time: number;
+  posts_3m: number;
+  views_3m: number;
+  median_views: number | null;
+  median_engagement_rate: number | null;
+  median_completion_pct: number | null;
+  first_post: string | null;
+  last_post: string | null;
+}

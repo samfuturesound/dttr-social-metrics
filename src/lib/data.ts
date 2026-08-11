@@ -4,9 +4,11 @@ import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./m
 import type {
   AccountScore,
   Brand,
+  BrandSummary,
   FlaggedPost,
   Intervention,
   Period,
+  PostDetail,
   PostNote,
   StreamingCapture,
 } from "./types";
@@ -238,4 +240,73 @@ export async function uploadStreamingCapture(
   if (error) throw new Error(error.message ?? "Vision extraction failed");
   if (data?.error) throw new Error(data.error);
   return data.capture as StreamingCapture;
+}
+
+/** Every post for one brand, all history, newest first. */
+export async function fetchPostDetail(brand: string): Promise<PostDetail[]> {
+  if (MOCK) {
+    return MOCK_FLAGGED.filter((p) => p.brand_name === brand).map((p) => ({
+      ...p,
+      follows: null,
+      reach: null,
+      duration_seconds: 20,
+      weighted_engagement: 80,
+      engagement_rate: 8.4,
+      completion_pct: 21,
+      engagement_multiple: 1.2,
+      median_engagement_rate: 7.1,
+      median_completion_pct: 18,
+    }));
+  }
+  const { data, error } = await supabase
+    .from("mx_post_detail")
+    .select("*")
+    .eq("brand_name", brand)
+    .order("published_at", { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...mapPost(r),
+    follows: num(r.follows),
+    reach: num(r.reach),
+    duration_seconds: num(r.duration_seconds),
+    weighted_engagement: num(r.weighted_engagement),
+    engagement_rate: num(r.engagement_rate),
+    completion_pct: num(r.completion_pct),
+    engagement_multiple: num(r.engagement_multiple),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+  }));
+}
+
+export async function fetchBrandSummary(
+  brand: string,
+): Promise<BrandSummary | null> {
+  if (MOCK) {
+    return {
+      brand_id: 1, brand_name: brand, brand_type: "artist", owner: "Sam",
+      niche: null, active: true, metricool_blog_id: "0",
+      posts_all_time: 75, views_all_time: 1294142, posts_3m: 16,
+      views_3m: 132904, median_views: 915, median_engagement_rate: 10.4,
+      median_completion_pct: 18.1, first_post: "2025-08-15",
+      last_post: "2026-07-28",
+    };
+  }
+  const { data, error } = await supabase
+    .from("mx_brand_summary")
+    .select("*")
+    .eq("brand_name", brand)
+    .limit(1);
+  fail(error);
+  const r = data?.[0];
+  if (!r) return null;
+  return {
+    ...r,
+    posts_all_time: num(r.posts_all_time) ?? 0,
+    views_all_time: num(r.views_all_time) ?? 0,
+    posts_3m: num(r.posts_3m) ?? 0,
+    views_3m: num(r.views_3m) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+  };
 }

@@ -30,23 +30,11 @@ import type {
 } from "../lib/types";
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
+import { Section, Empty } from "./Section";
+import { brandPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
 const PAGE_MAX = 50;
-
-function useCollapse(id: string, defaultOpen: boolean) {
-  const [open, setOpen] = useState<boolean>(() => {
-    const v = localStorage.getItem(`mx-open:${id}`);
-    return v === null ? defaultOpen : v === "1";
-  });
-  const toggle = useCallback(() => {
-    setOpen((o) => {
-      localStorage.setItem(`mx-open:${id}`, o ? "0" : "1");
-      return !o;
-    });
-  }, [id]);
-  return [open, toggle] as const;
-}
 
 export default function Dashboard() {
   const [leading, setLeading] = useState<FlaggedPost[] | null>(null);
@@ -180,7 +168,6 @@ export default function Dashboard() {
             title="Latest artist posts"
             timescale="most recent"
             count={latestArtists.length}
-            defaultOpen
           >
             {latestArtists.length === 0 ? (
               <Empty>Nothing here yet.</Empty>
@@ -194,7 +181,6 @@ export default function Dashboard() {
             title="Latest theme account posts"
             timescale="most recent"
             count={latestThemes.length}
-            defaultOpen
           >
             {latestThemes.length === 0 ? (
               <Empty>Nothing here yet.</Empty>
@@ -268,9 +254,16 @@ export default function Dashboard() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="text-[15px] font-semibold">
+                        <a
+                          href={brandPath(a.brand_name)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate(brandPath(a.brand_name));
+                          }}
+                          className="text-[15px] font-semibold hover:underline"
+                        >
                           {a.brand_name}
-                        </span>
+                        </a>
                         <span className="text-xs text-dim">{a.brand_type}</span>
                       </span>
                       <span className="mt-1 block text-[13px] text-dim">
@@ -335,49 +328,7 @@ function ScoreExplainer() {
   );
 }
 
-function Empty({ children }: { children: ReactNode }) {
-  return <p className="pt-5 text-sm text-dim">{children}</p>;
-}
 
-function Section(props: {
-  id: string;
-  title: string;
-  count: number;
-  timescale?: string;
-  defaultOpen?: boolean;
-  subtitle?: string;
-  children: ReactNode;
-}) {
-  const [open, toggle] = useCollapse(props.id, props.defaultOpen ?? false);
-  return (
-    <section>
-      <button
-        className="group flex w-full items-baseline justify-between border-b border-line pb-2 text-left"
-        onClick={toggle}
-        aria-expanded={open}
-      >
-        <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim group-hover:text-ink">
-          {props.title}
-          {props.timescale && (
-            <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-dim/70">
-              ({props.timescale})
-            </span>
-          )}
-          <span className="ml-2 font-normal text-dim/70">{props.count}</span>
-        </span>
-        <span className="font-serif text-sm leading-none text-dim/70 group-hover:text-ink">
-          {open ? "–" : "+"}
-        </span>
-      </button>
-      {open && props.subtitle && (
-        <p className="max-w-prose pt-3 text-[13px] leading-relaxed text-dim">
-          {props.subtitle}
-        </p>
-      )}
-      {open && props.children}
-    </section>
-  );
-}
 
 /**
  * PostList with a Load more control: PAGE_SIZE rows, growing by PAGE_SIZE
