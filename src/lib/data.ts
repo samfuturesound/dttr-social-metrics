@@ -42,15 +42,16 @@ async function fetchView(
 }
 
 /**
- * All three flagged/feed views share one column shape:
- *  - mx_flagged_interim: beating baseline, last 30 days (switch to mx_flagged
- *    once ~4 weeks of daily snapshots exist)
- *  - mx_recent: every post from the last 14 days, no threshold
+ * The post views all share one column shape:
+ *  - mx_leading: top 10 by multiple, last 30 days — always fills
+ *  - mx_recent: most recent posts per brand type (60 artist + 18 theme),
+ *    not a fixed date window, so quiet accounts still show their last posts
  *  - mx_best: beating baseline, last 12 months
+ *  - mx_top_views: top 10 by raw views, last 30 days
  */
-export async function fetchFlagged(): Promise<FlaggedPost[]> {
+export async function fetchLeading(): Promise<FlaggedPost[]> {
   if (MOCK) return MOCK_FLAGGED;
-  return fetchView("mx_flagged_interim", "views_multiple", false);
+  return fetchView("mx_leading", "views_multiple", false);
 }
 
 export async function fetchRecent(): Promise<FlaggedPost[]> {

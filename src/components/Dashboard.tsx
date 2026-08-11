@@ -10,8 +10,8 @@ import {
   fetchAccountScores,
   fetchBest,
   fetchBrands,
-  fetchFlagged,
   fetchInterventions,
+  fetchLeading,
   fetchNotes,
   fetchPeriod,
   fetchRecent,
@@ -31,7 +31,8 @@ import type {
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 
-const LEADING_COUNT = 10;
+const PAGE_SIZE = 10;
+const PAGE_MAX = 50;
 
 function useCollapse(id: string, defaultOpen: boolean) {
   const [open, setOpen] = useState<boolean>(() => {
@@ -48,7 +49,7 @@ function useCollapse(id: string, defaultOpen: boolean) {
 }
 
 export default function Dashboard() {
-  const [flagged, setFlagged] = useState<FlaggedPost[] | null>(null);
+  const [leading, setLeading] = useState<FlaggedPost[] | null>(null);
   const [recent, setRecent] = useState<FlaggedPost[]>([]);
   const [best, setBest] = useState<FlaggedPost[]>([]);
   const [topViews, setTopViews] = useState<FlaggedPost[]>([]);
@@ -65,7 +66,7 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     try {
       const [fl, re, be, tv, sc, pd, allBrands] = await Promise.all([
-        fetchFlagged(),
+        fetchLeading(),
         fetchRecent(),
         fetchBest(),
         fetchTopViews(),
@@ -73,7 +74,7 @@ export default function Dashboard() {
         fetchPeriod(),
         fetchBrands(),
       ]);
-      setFlagged(fl);
+      setLeading(fl);
       setRecent(re);
       setBest(be);
       setTopViews(tv);
@@ -100,10 +101,6 @@ export default function Dashboard() {
     load();
   }, [load]);
 
-  const leading = useMemo(
-    () => (flagged ?? []).slice(0, LEADING_COUNT),
-    [flagged],
-  );
   const latestArtists = useMemo(
     () => recent.filter((p) => p.brand_type === "artist"),
     [recent],
@@ -122,7 +119,7 @@ export default function Dashboard() {
   );
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId };
-  const loaded = flagged !== null;
+  const loaded = leading !== null;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
@@ -160,8 +157,13 @@ export default function Dashboard() {
 
       {loaded && (
         <div className="space-y-12">
-          <Section id="leading" title="Leading" count={leading.length} defaultOpen>
-            {leading.length === 0 ? (
+          <Section
+            id="leading"
+            title="Leading"
+            count={leading?.length ?? 0}
+            defaultOpen
+          >
+            {!leading || leading.length === 0 ? (
               <Empty>Nothing is beating its baseline this morning.</Empty>
             ) : (
               <PostList listId="leading" posts={leading} {...rowProps} reload={load} />
@@ -175,9 +177,9 @@ export default function Dashboard() {
             defaultOpen
           >
             {latestArtists.length === 0 ? (
-              <Empty>Nothing posted in the last two weeks.</Empty>
+              <Empty>Nothing here yet.</Empty>
             ) : (
-              <PostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
+              <PaginatedPostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
             )}
           </Section>
 
@@ -188,12 +190,9 @@ export default function Dashboard() {
             defaultOpen
           >
             {latestThemes.length === 0 ? (
-              <Empty>
-                Nothing yet — these accounts are about to start posting. Their
-                first posts will appear here.
-              </Empty>
+              <Empty>Nothing here yet.</Empty>
             ) : (
-              <PostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
+              <PaginatedPostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
             )}
           </Section>
 
@@ -362,6 +361,31 @@ function Section(props: {
       )}
       {open && props.children}
     </section>
+  );
+}
+
+/**
+ * PostList with a Load more control: PAGE_SIZE rows, growing by PAGE_SIZE
+ * up to PAGE_MAX — used by the Latest feeds.
+ */
+function PaginatedPostList(
+  props: Parameters<typeof PostList>[0],
+) {
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const cap = Math.min(props.posts.length, PAGE_MAX);
+  const shown = props.posts.slice(0, Math.min(visible, cap));
+  return (
+    <>
+      <PostList {...props} posts={shown} />
+      {shown.length < cap && (
+        <button
+          className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+          onClick={() => setVisible((v) => Math.min(v + PAGE_SIZE, cap))}
+        >
+          Load more ({cap - shown.length} more)
+        </button>
+      )}
+    </>
   );
 }
 

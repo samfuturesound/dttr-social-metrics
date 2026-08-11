@@ -16,6 +16,9 @@ export default function BrandAdmin(props: {
   const [brandType, setBrandType] = useState("theme");
   const [owner, setOwner] = useState("");
   const [niche, setNiche] = useState("");
+  const [fieldErr, setFieldErr] = useState<{ name?: string; blogId?: string }>(
+    {},
+  );
 
   function run(fn: () => Promise<void>) {
     setErr(null);
@@ -26,6 +29,15 @@ export default function BrandAdmin(props: {
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    const errs: { name?: string; blogId?: string } = {};
+    if (!name.trim()) errs.name = "Give the brand a name.";
+    if (!blogId.trim()) {
+      errs.blogId = "The blog id is needed to match Metricool's data.";
+    } else if (!/^\d+$/.test(blogId.trim())) {
+      errs.blogId = "The blog id is just the number from the URL.";
+    }
+    setFieldErr(errs);
+    if (Object.keys(errs).length > 0) return;
     run(() =>
       addBrand({
         metricoolBlogId: blogId.trim(),
@@ -83,21 +95,34 @@ export default function BrandAdmin(props: {
         <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
           Add brand
         </h3>
-        <form onSubmit={submit} className="space-y-4">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name"
-            required
-            className={inputCls}
-          />
-          <input
-            value={blogId}
-            onChange={(e) => setBlogId(e.target.value)}
-            placeholder="Metricool blog id"
-            required
-            className={inputCls}
-          />
+        <form onSubmit={submit} noValidate className="space-y-4">
+          <div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name"
+              className={inputCls}
+            />
+            {fieldErr.name && (
+              <p className="mt-1.5 text-[13px] text-accent">{fieldErr.name}</p>
+            )}
+          </div>
+          <div>
+            <input
+              value={blogId}
+              onChange={(e) => setBlogId(e.target.value)}
+              placeholder="Metricool blog id"
+              inputMode="numeric"
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[13px] leading-relaxed text-dim">
+              Open the brand in Metricool — it's the number after{" "}
+              <span className="font-medium">blogId=</span> in the URL.
+            </p>
+            {fieldErr.blogId && (
+              <p className="mt-1 text-[13px] text-accent">{fieldErr.blogId}</p>
+            )}
+          </div>
           <div className="flex gap-4">
             <select
               value={brandType}
