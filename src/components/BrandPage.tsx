@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchBrandSummary, fetchPostDetail } from "../lib/data";
+import { fetchBrandPlatform, fetchBrandSummary, fetchPostDetail } from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { navigate } from "../lib/router";
-import type { BrandSummary, PostDetail } from "../lib/types";
+import type { BrandPlatform, BrandSummary, PostDetail } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { Thumb } from "./PostRow";
 
@@ -133,15 +133,30 @@ function EngagementExplainer() {
             video's length. Only video posts carry duration, so it's blank
             elsewhere.
           </p>
+          <p>
+            Platforms report different things. TikTok gives views, likes,
+            comments and shares. Instagram adds saves and follows, and reels
+            also give watch time. That means engagement scores can't be
+            compared between platforms — a TikTok post has fewer ways to
+            score. Every comparison here is within the same platform and
+            format for that account, so a reel is measured against that
+            account's other reels, never against its TikToks.
+          </p>
         </div>
       )}
     </div>
   );
 }
 
+function platformLabel(network: string, contentType: string): string {
+  const net = NETWORK_LABEL[network] ?? network;
+  return network === "tiktok" ? net : `${net} ${contentType}`;
+}
+
 export default function BrandPage({ brand }: { brand: string }) {
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
   const [summary, setSummary] = useState<BrandSummary | null>(null);
+  const [platforms, setPlatforms] = useState<BrandPlatform[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -150,10 +165,15 @@ export default function BrandPage({ brand }: { brand: string }) {
     setPosts(null);
     setSummary(null);
     setLatestVisible(PAGE_SIZE);
-    Promise.all([fetchPostDetail(brand), fetchBrandSummary(brand)])
-      .then(([p, s]) => {
+    Promise.all([
+      fetchPostDetail(brand),
+      fetchBrandSummary(brand),
+      fetchBrandPlatform(brand),
+    ])
+      .then(([p, s, pl]) => {
         setPosts(p);
         setSummary(s);
+        setPlatforms(pl);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [brand]);
@@ -191,26 +211,47 @@ export default function BrandPage({ brand }: { brand: string }) {
         .slice(0, 10),
     [recent],
   );
-  const topEngRate = useMemo(
-    () =>
-      (posts ?? [])
-        .filter((p) => p.engagement_rate !== null)
-        .sort((a, b) => (b.engagement_rate ?? 0) - (a.engagement_rate ?? 0))
-        .slice(0, 5),
-    [posts],
-  );
+  // Engagement scores are NOT comparable across platforms (TikTok can only
+  // earn likes/comments/shares; Instagram adds saves and follows). Rank
+  // within platform+format only — never one mixed list.
+  const topEngRateGroups = useMemo(() => {
+    const groups = new Map<string, PostDetail[]>();
+    for (const p of posts ?? []) {
+      if (p.engagement_rate === null) continue;
+      const key = `${p.network}|${p.content_type}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(p);
+      groups.set(key, arr);
+    }
+    return [...groups.entries()]
+      .map(([key, arr]) => {
+        const [network, contentType] = key.split("|");
+        return {
+          label: platformLabel(network, contentType),
+          posts: arr
+            .sort((a, b) => (b.engagement_rate ?? 0) - (a.engagement_rate ?? 0))
+            .slice(0, 5),
+          total: arr.length,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [posts]);
   const mostWatched = useMemo(
     () =>
       (posts ?? [])
-        .filter((p) => p.completion_pct !== null)
+        .filter(
+          (p) =>
+            p.network === "instagram" &&
+            p.content_type === "reels" &&
+            p.completion_pct !== null,
+        )
         .sort((a, b) => (b.completion_pct ?? 0) - (a.completion_pct ?? 0))
         .slice(0, 5),
     [posts],
   );
-
-  const medViews = summary?.median_views ?? null;
-  const medEng = summary?.median_engagement_rate ?? null;
-  const medComp = summary?.median_completion_pct ?? null;
+  const reelsPlatform = platforms.find(
+    (p) => p.network === "instagram" && p.content_type === "reels",
+  );
 
   const viewsMeta = (p: PostDetail) =>
     `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`;
@@ -238,18 +279,10 @@ export default function BrandPage({ brand }: { brand: string }) {
             <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
               <Stat value={String(summary.posts_all_time)} label="Posts" />
               <Stat value={compact(summary.views_all_time)} label="Views" />
-              {medViews !== null && (
-                <Stat value={compact(medViews)} label="Median views" />
-              )}
-              {medEng !== null && (
-                <Stat value={medEng.toFixed(1)} label="Median engagement" />
-              )}
-              {medComp !== null && (
-                <Stat
-                  value={`${Math.round(medComp)}%`}
-                  label="Median completion"
-                />
-              )}
+              <Stat
+                value={`${summary.posts_3m} · ${compact(summary.views_3m)}`}
+                label="Posts · views, 3m"
+              />
               {summary.first_post && summary.last_post && (
                 <Stat
                   value={`${monthYear(summary.first_post)} – ${monthYear(summary.last_post)}`}
@@ -257,6 +290,47 @@ export default function BrandPage({ brand }: { brand: string }) {
                 />
               )}
             </div>
+
+            {platforms.length > 0 && (
+              <div className="mt-6 overflow-x-auto">
+                <table className="w-full max-w-2xl text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
+                      <th className="py-2 pr-4 font-medium"></th>
+                      <th className="py-2 pr-4 font-medium">Posts</th>
+                      <th className="py-2 pr-4 font-medium">Median views</th>
+                      <th className="py-2 pr-4 font-medium">Median engagement</th>
+                      <th className="py-2 font-medium">Median completion</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {platforms.map((pl) => (
+                      <tr key={`${pl.network}-${pl.content_type}`}>
+                        <td className="py-2.5 pr-4">
+                          {platformLabel(pl.network, pl.content_type)}
+                        </td>
+                        <td className="py-2.5 pr-4 font-serif">{pl.posts}</td>
+                        <td className="py-2.5 pr-4 font-serif">
+                          {pl.median_views !== null
+                            ? compact(pl.median_views)
+                            : ""}
+                        </td>
+                        <td className="py-2.5 pr-4 font-serif">
+                          {pl.median_engagement_rate !== null
+                            ? pl.median_engagement_rate.toFixed(1)
+                            : ""}
+                        </td>
+                        <td className="py-2.5 font-serif">
+                          {pl.median_completion_pct !== null
+                            ? `${Math.round(pl.median_completion_pct)}%`
+                            : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
               "All time" here means since measurements began — roughly the
               last twelve months — not the account's whole life.
@@ -394,7 +468,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                     key={p.external_id}
                     post={p}
                     headline={multiple(p.engagement_multiple)}
-                    meta={`${shortDate(p.published_at)} · ${p.engagement_rate?.toFixed(1)} per 100 views${medEng !== null ? ` vs ${medEng.toFixed(1)} median` : ""}`}
+                    meta={`${shortDate(p.published_at)} · ${platformLabel(p.network, p.content_type)} · ${p.engagement_rate?.toFixed(1)} per 100 views${p.median_engagement_rate !== null ? ` vs ${p.median_engagement_rate.toFixed(1)} median` : ""}`}
                   />
                 ))}
               </ul>
@@ -404,32 +478,41 @@ export default function BrandPage({ brand }: { brand: string }) {
           <Section
             id="brand-top-eng"
             title="Top engagement rate"
-            timescale="all time"
-            count={topEngRate.length}
-            subtitle="Highest weighted engagement per 100 views."
+            timescale="all time, per platform"
+            count={topEngRateGroups.reduce((n, g) => n + g.posts.length, 0)}
+            subtitle="Highest weighted engagement per 100 views. Ranked within each platform and format — the score isn't comparable across them."
           >
-            {topEngRate.length === 0 ? (
+            {topEngRateGroups.length === 0 ? (
               <Empty>No engagement data yet.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
-                {topEngRate.map((p) => (
-                  <BrandRow
-                    key={p.external_id}
-                    post={p}
-                    headline={p.engagement_rate?.toFixed(1) ?? "—"}
-                    meta={`${shortDate(p.published_at)} · ${compact(p.views)} views${medEng !== null ? ` · account median ${medEng.toFixed(1)}` : ""}`}
-                  />
+              <div className="space-y-6">
+                {topEngRateGroups.map((g) => (
+                  <div key={g.label}>
+                    <h4 className="pt-4 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
+                      {g.label}
+                    </h4>
+                    <ul className="divide-y divide-line">
+                      {g.posts.map((p) => (
+                        <BrandRow
+                          key={p.external_id}
+                          post={p}
+                          headline={p.engagement_rate?.toFixed(1) ?? "—"}
+                          meta={`${shortDate(p.published_at)} · ${compact(p.views)} views${p.median_engagement_rate !== null ? ` · median ${p.median_engagement_rate.toFixed(1)}` : ""}`}
+                        />
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
           <Section
             id="brand-watched"
             title="Most watched through"
-            timescale="all time"
+            timescale="Instagram reels only"
             count={mostWatched.length}
-            subtitle="Average watch time as a share of video length. Video posts only."
+            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reelsPlatform ? ` From ${reelsPlatform.completion_available} of ${reelsPlatform.posts} reels.` : ""}`}
           >
             {mostWatched.length === 0 ? (
               <Empty>No video duration data for this account.</Empty>
@@ -440,7 +523,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                     key={p.external_id}
                     post={p}
                     headline={`${Math.round(p.completion_pct ?? 0)}%`}
-                    meta={`${shortDate(p.published_at)} · ${p.avg_watch_seconds?.toFixed(1) ?? "?"}s of ${p.duration_seconds ?? "?"}s${medComp !== null ? ` · account median ${Math.round(medComp)}%` : ""}`}
+                    meta={`${shortDate(p.published_at)} · ${p.avg_watch_seconds?.toFixed(1) ?? "?"}s of ${p.duration_seconds ?? "?"}s${p.median_completion_pct !== null ? ` · account median ${Math.round(p.median_completion_pct)}%` : ""}`}
                   />
                 ))}
               </ul>

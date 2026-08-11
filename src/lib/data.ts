@@ -4,6 +4,7 @@ import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./m
 import type {
   AccountScore,
   Brand,
+  BrandPlatform,
   BrandSummary,
   FlaggedPost,
   Intervention,
@@ -286,8 +287,7 @@ export async function fetchBrandSummary(
       brand_id: 1, brand_name: brand, brand_type: "artist", owner: "Sam",
       niche: null, active: true, metricool_blog_id: "0",
       posts_all_time: 75, views_all_time: 1294142, posts_3m: 16,
-      views_3m: 132904, median_views: 915, median_engagement_rate: 10.4,
-      median_completion_pct: 18.1, first_post: "2025-08-15",
+      views_3m: 132904, platforms: 2, first_post: "2025-08-15",
       last_post: "2026-07-28",
     };
   }
@@ -305,8 +305,41 @@ export async function fetchBrandSummary(
     views_all_time: num(r.views_all_time) ?? 0,
     posts_3m: num(r.posts_3m) ?? 0,
     views_3m: num(r.views_3m) ?? 0,
+    platforms: num(r.platforms) ?? 0,
+  };
+}
+
+/** Per-platform, per-format medians — the comparison a pooled number destroys. */
+export async function fetchBrandPlatform(
+  brand: string,
+): Promise<BrandPlatform[]> {
+  if (MOCK) {
+    return [
+      { brand_id: 1, brand_name: brand, brand_type: "artist",
+        network: "tiktok", content_type: "posts", posts: 51, views: 43096,
+        median_views: 665, median_engagement_rate: 11.2,
+        median_completion_pct: null, completion_available: 0,
+        last_post: "2026-05-27" },
+      { brand_id: 1, brand_name: brand, brand_type: "artist",
+        network: "instagram", content_type: "reels", posts: 7, views: 178653,
+        median_views: 26326, median_engagement_rate: 10.4,
+        median_completion_pct: 18.1, completion_available: 5,
+        last_post: "2026-05-20" },
+    ];
+  }
+  const { data, error } = await supabase
+    .from("mx_brand_platform_summary")
+    .select("*")
+    .eq("brand_name", brand)
+    .order("posts", { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    posts: num(r.posts) ?? 0,
+    views: num(r.views) ?? 0,
     median_views: num(r.median_views),
     median_engagement_rate: num(r.median_engagement_rate),
     median_completion_pct: num(r.median_completion_pct),
-  };
+    completion_available: num(r.completion_available) ?? 0,
+  }));
 }

@@ -114,7 +114,8 @@ export interface PostDetail extends FlaggedPost {
   median_completion_pct: number | null;
 }
 
-/** mx_brand_summary row — per-brand headline figures. */
+/** mx_brand_summary row — per-brand headline figures (no pooled medians:
+ * a median across TikTok and Instagram together is meaningless). */
 export interface BrandSummary {
   brand_id: number;
   brand_name: string;
@@ -127,9 +128,23 @@ export interface BrandSummary {
   views_all_time: number;
   posts_3m: number;
   views_3m: number;
+  platforms: number;
+  first_post: string | null;
+  last_post: string | null;
+}
+
+/** mx_brand_platform_summary row — medians per brand per network per format. */
+export interface BrandPlatform {
+  brand_id: number;
+  brand_name: string;
+  brand_type: BrandType;
+  network: string;
+  content_type: string;
+  posts: number;
+  views: number;
   median_views: number | null;
   median_engagement_rate: number | null;
   median_completion_pct: number | null;
-  first_post: string | null;
+  completion_available: number;
   last_post: string | null;
 }
