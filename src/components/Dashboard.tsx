@@ -18,7 +18,7 @@ import {
   fetchStreaming,
   fetchTopViews,
 } from "../lib/data";
-import { compact, fullDate, todayLabel } from "../lib/format";
+import { compact, shortDate, todayLabel } from "../lib/format";
 import type {
   AccountScore,
   Brand,
@@ -120,7 +120,9 @@ export default function Dashboard() {
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId };
   const loaded = leading !== null;
-  const windowLabel = `last ${period?.period_days ?? 30} days`;
+  const windowLabel = period
+    ? `${shortDate(period.period_start)} \u2013 ${shortDate(period.period_end)}`
+    : `last 30 days`;
   const bestLabel = "last 6 months, 2.5\u00d7 or better";
 
   return (
@@ -148,7 +150,7 @@ export default function Dashboard() {
         <h1 className="mt-3 font-serif text-4xl tracking-tight">
           {todayLabel()}
         </h1>
-        <ScoreExplainer period={period} />
+        <ScoreExplainer />
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
@@ -296,7 +298,7 @@ export default function Dashboard() {
   );
 }
 
-function ScoreExplainer({ period }: { period: Period | null }) {
+function ScoreExplainer() {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-2">
@@ -327,12 +329,6 @@ function ScoreExplainer({ period }: { period: Period | null }) {
             account needs at least ten posts of history before anything is
             scored.
           </p>
-          {period && (
-            <p>
-              Posts published between {fullDate(period.period_start)} and{" "}
-              {fullDate(period.period_end)}.
-            </p>
-          )}
         </div>
       )}
     </div>
