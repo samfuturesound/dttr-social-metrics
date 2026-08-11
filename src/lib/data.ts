@@ -46,7 +46,7 @@ async function fetchView(
  *  - mx_leading: top 10 by multiple, last 30 days — always fills
  *  - mx_recent: most recent posts per brand type (60 artist + 18 theme),
  *    not a fixed date window, so quiet accounts still show their last posts
- *  - mx_best: beating baseline, last 12 months
+ *  - mx_best: beating baseline, last 6 months
  *  - mx_top_views: top 10 by raw views, last 30 days
  */
 export async function fetchLeading(): Promise<FlaggedPost[]> {

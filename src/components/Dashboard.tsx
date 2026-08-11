@@ -121,7 +121,7 @@ export default function Dashboard() {
   const rowProps = { notes, interventions, streaming, openId, setOpenId };
   const loaded = leading !== null;
   const windowLabel = `last ${period?.period_days ?? 30} days`;
-  const bestLabel = "last 12 months, 2.5\u00d7 or better";
+  const bestLabel = "last 6 months, 2.5\u00d7 or better";
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
