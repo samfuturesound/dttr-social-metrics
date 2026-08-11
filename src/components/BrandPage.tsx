@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchBrandPlatform,
+  fetchBrandPlatformRanks,
   fetchBrandSummary,
   fetchPostDetail,
 } from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { navigate } from "../lib/router";
-import type { BrandPlatform, BrandSummary, PostDetail } from "../lib/types";
+import type { BrandPlatformRanks, BrandSummary, PostDetail } from "../lib/types";
 import { Section, Empty } from "./Section";
-import { BrandRow, PlatformTable, Stat, platformLabel } from "./BrandRow";
+import { BrandRow, Stat, platformLabel } from "./BrandRow";
+import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
 import ShareManager from "./ShareManager";
 
@@ -19,7 +20,7 @@ const PAGE_MAX = 50;
 export default function BrandPage({ brand }: { brand: string }) {
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
   const [summary, setSummary] = useState<BrandSummary | null>(null);
-  const [platforms, setPlatforms] = useState<BrandPlatform[]>([]);
+  const [platforms, setPlatforms] = useState<BrandPlatformRanks[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -31,7 +32,7 @@ export default function BrandPage({ brand }: { brand: string }) {
     Promise.all([
       fetchPostDetail(brand),
       fetchBrandSummary(brand),
-      fetchBrandPlatform(brand),
+      fetchBrandPlatformRanks(brand),
     ])
       .then(([p, s, pl]) => {
         setPosts(p);
@@ -154,7 +155,7 @@ export default function BrandPage({ brand }: { brand: string }) {
               )}
             </div>
 
-            <PlatformTable rows={platforms} compact={compact} />
+            <RankedPlatformTable rows={platforms} />
             <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
               "All time" here means since measurements began — first post is
               stated above — not the account's whole life.

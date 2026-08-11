@@ -5,6 +5,7 @@ import type {
   AccountScore,
   Brand,
   BrandPlatform,
+  BrandPlatformRanks,
   BrandSummary,
   ShareLink,
   SharePost,
@@ -419,4 +420,56 @@ export async function createShare(args: {
 export async function revokeShare(id: number): Promise<void> {
   const { error } = await supabase.rpc("mx_revoke_share", { p_id: id });
   fail(error);
+}
+
+
+/**
+ * Per-platform medians plus roster ranks — the internal brand page only.
+ * The public share route must never call this; it uses fetchShareSummary,
+ * whose function returns no rank columns.
+ */
+export async function fetchBrandPlatformRanks(
+  brand: string,
+): Promise<BrandPlatformRanks[]> {
+  if (MOCK) {
+    const base = await fetchBrandPlatform(brand);
+    return base.map((r, i) => ({
+      ...r,
+      rank_views_all: i + 1, total_views_all: 8,
+      rank_views_type: i + 1, total_views_type: 5,
+      rank_eng_all: i + 2, total_eng_all: 8,
+      rank_eng_type: i + 1, total_eng_type: 5,
+      rank_completion_all: r.median_completion_pct !== null ? 4 : 1,
+      total_completion_all: r.median_completion_pct !== null ? 8 : 0,
+      rank_completion_type: r.median_completion_pct !== null ? 4 : 1,
+      total_completion_type: r.median_completion_pct !== null ? 8 : 0,
+    }));
+  }
+  const { data, error } = await supabase
+    .from("mx_brand_platform_ranks")
+    .select("*")
+    .eq("brand_name", brand)
+    .order("posts", { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    posts: num(r.posts) ?? 0,
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+    completion_available: num(r.completion_available) ?? 0,
+    rank_views_all: num(r.rank_views_all),
+    total_views_all: num(r.total_views_all) ?? 0,
+    rank_views_type: num(r.rank_views_type),
+    total_views_type: num(r.total_views_type) ?? 0,
+    rank_eng_all: num(r.rank_eng_all),
+    total_eng_all: num(r.total_eng_all) ?? 0,
+    rank_eng_type: num(r.rank_eng_type),
+    total_eng_type: num(r.total_eng_type) ?? 0,
+    rank_completion_all: num(r.rank_completion_all),
+    total_completion_all: num(r.total_completion_all) ?? 0,
+    rank_completion_type: num(r.rank_completion_type),
+    total_completion_type: num(r.total_completion_type) ?? 0,
+  }));
 }

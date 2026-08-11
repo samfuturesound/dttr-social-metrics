@@ -205,3 +205,26 @@ export interface ShareLink {
   expires_on: string | null;
   revoked: boolean;
 }
+
+/**
+ * mx_brand_platform_ranks — the platform summary plus the brand's position
+ * within each cohort. INTERNAL ONLY: never fetched or rendered on the public
+ * share route, which uses mx_share_summary (no rank columns at all).
+ *
+ * Every rank is scoped to the same network AND content type, and each
+ * denominator counts only brands with data in that cohort.
+ */
+export interface BrandPlatformRanks extends BrandPlatform {
+  rank_views_all: number | null;
+  total_views_all: number;
+  rank_views_type: number | null;
+  total_views_type: number;
+  rank_eng_all: number | null;
+  total_eng_all: number;
+  rank_eng_type: number | null;
+  total_eng_type: number;
+  rank_completion_all: number | null;
+  total_completion_all: number;
+  rank_completion_type: number | null;
+  total_completion_type: number;
+}
