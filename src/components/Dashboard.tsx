@@ -18,7 +18,7 @@ import type {
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 
-export default function Dashboard({ email }: { email: string }) {
+export default function Dashboard() {
   const [posts, setPosts] = useState<FlaggedPost[] | null>(null);
   const [notes, setNotes] = useState<PostNote[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
@@ -65,37 +65,33 @@ export default function Dashboard({ email }: { email: string }) {
   const activeBrands = brands.filter((b) => b.active).length;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-      <header className="mb-8 flex items-baseline justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">DTTR Social</h1>
-          <p className="text-sm text-dim">{todayLabel()}</p>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-dim">
-          {MOCK && (
-            <span className="rounded bg-hot/15 px-2 py-0.5 text-xs font-medium text-hot">
-              mock data
-            </span>
-          )}
-          <button className="hover:text-ink" onClick={() => setAdminOpen(true)}>
-            Brands
-          </button>
-          {!MOCK && (
-            <button
-              className="hover:text-ink"
-              onClick={() => supabase.auth.signOut()}
-            >
-              Sign out
+    <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
+      <header className="mb-12">
+        <div className="flex items-baseline justify-between">
+          <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
+            Dance to the Radio
+            {MOCK && <span className="ml-3 text-accent">mock data</span>}
+          </p>
+          <nav className="flex gap-5 text-[13px] text-dim">
+            <button className="hover:text-ink" onClick={() => setAdminOpen(true)}>
+              Brands
             </button>
-          )}
+            {!MOCK && (
+              <button
+                className="hover:text-ink"
+                onClick={() => supabase.auth.signOut()}
+              >
+                Sign out
+              </button>
+            )}
+          </nav>
         </div>
+        <h1 className="mt-3 font-serif text-4xl tracking-tight">
+          {todayLabel()}
+        </h1>
       </header>
 
-      {error && (
-        <div className="mb-6 rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
+      {error && <p className="mb-8 text-sm text-accent">{error}</p>}
 
       {posts === null && !error && (
         <p className="py-24 text-center text-sm text-dim">Loading…</p>
@@ -103,27 +99,26 @@ export default function Dashboard({ email }: { email: string }) {
 
       {posts !== null && posts.length === 0 && (
         <div className="py-28 text-center">
-          <p className="text-2xl font-medium text-good">All quiet.</p>
-          <p className="mt-2 text-sm text-dim">
+          <p className="font-serif text-4xl">All quiet.</p>
+          <p className="mt-3 text-sm text-dim">
             Nothing is beating its baseline this morning
             {activeBrands > 0 ? ` across ${activeBrands} active brands` : ""}.
-            No action needed.
           </p>
         </div>
       )}
 
       {posts !== null && posts.length > 0 && (
-        <div className="grid gap-10 lg:grid-cols-2">
+        <div className="grid gap-x-14 gap-y-12 lg:grid-cols-2">
           <Group
             title="Artists"
             posts={artists}
-            {...{ notes, interventions, streaming, email, openId, setOpenId }}
+            {...{ notes, interventions, streaming, openId, setOpenId }}
             reload={load}
           />
           <Group
             title="Theme accounts"
             posts={themes}
-            {...{ notes, interventions, streaming, email, openId, setOpenId }}
+            {...{ notes, interventions, streaming, openId, setOpenId }}
             reload={load}
           />
         </div>
@@ -132,7 +127,6 @@ export default function Dashboard({ email }: { email: string }) {
       {adminOpen && (
         <BrandAdmin
           brands={brands}
-          email={email}
           onClose={() => setAdminOpen(false)}
           reload={load}
         />
@@ -147,7 +141,6 @@ function Group(props: {
   notes: PostNote[];
   interventions: Intervention[];
   streaming: StreamingCapture[];
-  email: string;
   openId: string | null;
   setOpenId: (id: string | null) => void;
   reload: () => Promise<void>;
@@ -155,18 +148,16 @@ function Group(props: {
   const { title, posts } = props;
   return (
     <section>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-dim">
+      <h2 className="border-b border-line pb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
         {title}
         {posts.length > 0 && (
-          <span className="ml-2 font-normal">{posts.length}</span>
+          <span className="ml-2 font-normal text-dim/70">{posts.length}</span>
         )}
       </h2>
       {posts.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-edge px-4 py-6 text-sm text-dim">
-          Nothing flagged.
-        </p>
+        <p className="pt-6 text-sm text-dim">Nothing flagged.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line">
           {posts.map((p) => (
             <PostRow
               key={p.external_id}
@@ -180,7 +171,6 @@ function Group(props: {
               streaming={props.streaming.filter(
                 (s) => s.triggered_by_external_id === p.external_id,
               )}
-              email={props.email}
               open={props.openId === p.external_id}
               onToggle={() =>
                 props.setOpenId(

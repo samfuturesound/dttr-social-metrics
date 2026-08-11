@@ -121,15 +121,11 @@ export async function fetchBrands(): Promise<Brand[]> {
   return data ?? [];
 }
 
-export async function addNote(
-  externalId: string,
-  note: string,
-  author: string,
-): Promise<void> {
+export async function addNote(externalId: string, note: string): Promise<void> {
   const { error } = await supabase.rpc("mx_add_note", {
     p_external_id: externalId,
     p_note: note,
-    p_author: author,
+    p_author: null,
   });
   fail(error);
 }
@@ -141,7 +137,6 @@ export async function addIntervention(args: {
   endedOn: string | null;
   spend: number | null;
   notes: string | null;
-  createdBy: string;
 }): Promise<void> {
   const { error } = await supabase.rpc("mx_add_intervention", {
     p_external_id: args.externalId,
@@ -150,7 +145,7 @@ export async function addIntervention(args: {
     p_ended_on: args.endedOn,
     p_spend: args.spend,
     p_notes: args.notes,
-    p_created_by: args.createdBy,
+    p_created_by: null,
   });
   fail(error);
 }
@@ -161,7 +156,7 @@ export async function removeIntervention(id: string): Promise<void> {
 }
 
 export async function addBrand(args: {
-  metricoolBlogId: number;
+  metricoolBlogId: string;
   name: string;
   brandType: string;
   owner: string;

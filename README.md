@@ -24,11 +24,23 @@ bun run dev
 `.env` (see `.env.example`):
 
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — the shared project.
-- `VITE_ALLOWED_EMAILS` — comma-separated emails allowed past the login gate.
 - `VITE_MOCK=1` — render fixture data with no auth (UI development only).
 
-Sign-in uses existing Supabase accounts (email + password) — there is no
-sign-up flow, deliberately.
+## Access
+
+One shared password, checked server-side by the `mx-login` edge function
+([supabase/functions/mx-login](supabase/functions/mx-login/index.ts)). On
+success it returns a real Supabase session for the internal service account
+(`mx-internal@dttrsocialmetrics.app`), which the function creates and
+maintains itself. The session persists per browser.
+
+- Change the password by setting the `MX_SHARED_PASSWORD` edge function
+  secret — no redeploy needed. Until the secret is set, the fallback is
+  `DTTR` (baked into the function, so set the secret).
+- All `mx_*` views, write RPCs and the `mx-streaming` bucket are restricted
+  to the internal account via RLS + guards (`mx_is_internal()` /
+  `mx_assert_internal()` in the database). Other authenticated users of the
+  shared project get zero rows; the anon key alone gets permission denied.
 
 ## Data notes
 
@@ -50,12 +62,12 @@ the caller's JWT, so storage policies and RPC grants apply as normal.
 Supabase secrets the function needs:
 
 - `ANTHROPIC_API_KEY` — **must be set before the upload flow works.**
-- `MX_ALLOWED_EMAILS` — optional server-side allowlist (defence in depth; the
-  frontend allowlist alone is cosmetic).
+
+Only the internal service account may call it.
 
 ## Deploy (Vercel)
 
 Standard Vite build (`bun run build`, output `dist/`). `vercel.json` adds
 `X-Robots-Tag: noindex` on every route and the SPA rewrite; `index.html` also
-carries a `noindex` meta tag. No sitemap. Set the three `VITE_*` env vars in
-Vercel project settings.
+carries a `noindex` meta tag. No sitemap. Set `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` in Vercel project settings.

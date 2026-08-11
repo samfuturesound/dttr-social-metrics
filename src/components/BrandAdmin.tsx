@@ -3,11 +3,10 @@ import { addBrand, setBrandActive } from "../lib/data";
 import type { Brand } from "../lib/types";
 
 const inputCls =
-  "rounded border border-edge bg-surface px-2 py-1.5 text-sm outline-none focus:border-dim";
+  "w-full border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
 
 export default function BrandAdmin(props: {
   brands: Brand[];
-  email: string;
   onClose: () => void;
   reload: () => Promise<void>;
 }) {
@@ -29,10 +28,10 @@ export default function BrandAdmin(props: {
     e.preventDefault();
     run(() =>
       addBrand({
-        metricoolBlogId: Number(blogId),
+        metricoolBlogId: blogId.trim(),
         name: name.trim(),
         brandType,
-        owner: owner.trim() || props.email,
+        owner: owner.trim(),
         niche: niche.trim() || null,
       }),
     );
@@ -43,28 +42,28 @@ export default function BrandAdmin(props: {
 
   return (
     <div
-      className="fixed inset-0 z-10 flex justify-end bg-black/60"
+      className="fixed inset-0 z-10 flex justify-end bg-ink/20"
       onClick={props.onClose}
     >
       <div
-        className="h-full w-full max-w-md overflow-y-auto border-l border-edge bg-panel p-5"
+        className="h-full w-full max-w-md overflow-y-auto border-l border-line bg-paper px-7 py-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">Brands</h2>
-          <button className="text-sm text-dim hover:text-ink" onClick={props.onClose}>
+        <div className="mb-6 flex items-baseline justify-between">
+          <h2 className="font-serif text-2xl">Brands</h2>
+          <button
+            className="text-[13px] text-dim hover:text-ink"
+            onClick={props.onClose}
+          >
             Close
           </button>
         </div>
 
-        {err && <p className="mb-3 text-sm text-red-400">{err}</p>}
+        {err && <p className="mb-4 text-sm text-accent">{err}</p>}
 
-        <ul className="mb-6 space-y-1.5">
+        <ul className="mb-10 divide-y divide-line">
           {props.brands.map((b) => (
-            <li
-              key={b.id}
-              className="flex items-center justify-between rounded border border-edge px-3 py-2 text-sm"
-            >
+            <li key={b.id} className="flex items-baseline justify-between py-2.5 text-sm">
               <span className={b.active ? "" : "text-dim line-through"}>
                 {b.name}
                 <span className="ml-2 text-xs text-dim">
@@ -72,7 +71,7 @@ export default function BrandAdmin(props: {
                 </span>
               </span>
               <button
-                className="text-xs text-dim underline hover:text-ink"
+                className="text-xs text-dim underline underline-offset-2 hover:text-ink"
                 onClick={() => run(() => setBrandActive(b.id, !b.active))}
               >
                 {b.active ? "deactivate" : "activate"}
@@ -81,26 +80,25 @@ export default function BrandAdmin(props: {
           ))}
         </ul>
 
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-dim">
+        <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
           Add brand
         </h3>
-        <form onSubmit={submit} className="space-y-2">
+        <form onSubmit={submit} className="space-y-4">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name"
             required
-            className={`w-full ${inputCls}`}
+            className={inputCls}
           />
           <input
             value={blogId}
             onChange={(e) => setBlogId(e.target.value)}
             placeholder="Metricool blog id"
-            type="number"
             required
-            className={`w-full ${inputCls}`}
+            className={inputCls}
           />
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             <select
               value={brandType}
               onChange={(e) => setBrandType(e.target.value)}
@@ -112,7 +110,7 @@ export default function BrandAdmin(props: {
             <input
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
-              placeholder="Owner (defaults to you)"
+              placeholder="Owner"
               className={`flex-1 ${inputCls}`}
             />
           </div>
@@ -120,11 +118,11 @@ export default function BrandAdmin(props: {
             value={niche}
             onChange={(e) => setNiche(e.target.value)}
             placeholder="Niche (theme brands)"
-            className={`w-full ${inputCls}`}
+            className={inputCls}
           />
           <button
             type="submit"
-            className="rounded border border-edge px-3 py-1.5 text-sm hover:bg-edge"
+            className="rounded-full bg-ink px-5 py-1.5 text-[13px] text-paper hover:opacity-90"
           >
             Add
           </button>

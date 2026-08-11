@@ -16,17 +16,16 @@ import {
 } from "../lib/types";
 
 const inputCls =
-  "rounded border border-edge bg-surface px-2 py-1.5 text-sm outline-none focus:border-dim";
+  "border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
 
 export default function PostDetail(props: {
   post: FlaggedPost;
   notes: PostNote[];
   interventions: Intervention[];
   streaming: StreamingCapture[];
-  email: string;
   reload: () => Promise<void>;
 }) {
-  const { post, email, reload } = props;
+  const { post, reload } = props;
   const [err, setErr] = useState<string | null>(null);
 
   function run(fn: () => Promise<void>) {
@@ -37,12 +36,17 @@ export default function PostDetail(props: {
   }
 
   return (
-    <div className="space-y-5 border-t border-edge px-4 py-4 text-sm">
-      {err && <p className="text-red-400">{err}</p>}
-      <Notes notes={props.notes} onAdd={(note) => run(() => addNote(post.external_id, note, email))} />
+    <div className="space-y-6 pb-8 pl-25 pr-2 text-sm max-sm:pl-0">
+      {err && <p className="text-accent">{err}</p>}
+      <Notes
+        notes={props.notes}
+        onAdd={(note) => run(() => addNote(post.external_id, note))}
+      />
       <Boosts
         interventions={props.interventions}
-        onAdd={(a) => run(() => addIntervention({ ...a, externalId: post.external_id, createdBy: email }))}
+        onAdd={(a) =>
+          run(() => addIntervention({ ...a, externalId: post.external_id }))
+        }
         onRemove={(id) => run(() => removeIntervention(id))}
       />
       <Streaming
@@ -52,6 +56,14 @@ export default function PostDetail(props: {
         onError={setErr}
       />
     </div>
+  );
+}
+
+function Heading({ children }: { children: string }) {
+  return (
+    <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+      {children}
+    </h3>
   );
 }
 
@@ -66,25 +78,21 @@ function Notes(props: { notes: PostNote[]; onAdd: (note: string) => void }) {
   }
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-dim">
-        Notes
-      </h3>
+      <Heading>Notes</Heading>
       {props.notes.map((n) => (
         <p key={n.id} className="mb-1.5">
           {n.note}{" "}
-          <span className="text-xs text-dim">
-            — {n.author ?? "unknown"}, {shortDate(n.created_at)}
-          </span>
+          <span className="text-xs text-dim">— {shortDate(n.created_at)}</span>
         </p>
       ))}
-      <form onSubmit={submit} className="mt-1 flex gap-2">
+      <form onSubmit={submit} className="mt-1 flex items-end gap-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="What made this land?"
           className={`flex-1 ${inputCls}`}
         />
-        <button className="rounded border border-edge px-3 text-sm hover:bg-edge" type="submit">
+        <button className="text-[13px] text-dim underline underline-offset-2 hover:text-ink" type="submit">
           Add
         </button>
       </form>
@@ -94,7 +102,13 @@ function Notes(props: { notes: PostNote[]; onAdd: (note: string) => void }) {
 
 function Boosts(props: {
   interventions: Intervention[];
-  onAdd: (a: { kind: string; startedOn: string; endedOn: string | null; spend: number | null; notes: string | null }) => void;
+  onAdd: (a: {
+    kind: string;
+    startedOn: string;
+    endedOn: string | null;
+    spend: number | null;
+    notes: string | null;
+  }) => void;
   onRemove: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -121,16 +135,14 @@ function Boosts(props: {
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-dim">
-        Paid support
-      </h3>
+      <Heading>Paid support</Heading>
       {props.interventions.map((i) => (
         <p key={i.id} className="mb-1.5">
           {INTERVENTION_LABELS[i.kind] ?? i.kind} from {shortDate(i.started_on)}
           {i.spend !== null && ` · £${i.spend}`}
           {i.notes && <span className="text-dim"> — {i.notes}</span>}{" "}
           <button
-            className="text-xs text-dim underline hover:text-red-400"
+            className="text-xs text-dim underline underline-offset-2 hover:text-accent"
             onClick={() => props.onRemove(i.id)}
           >
             remove
@@ -138,7 +150,7 @@ function Boosts(props: {
         </p>
       ))}
       {showForm ? (
-        <form onSubmit={submit} className="mt-1 flex flex-wrap items-center gap-2">
+        <form onSubmit={submit} className="mt-2 flex flex-wrap items-end gap-4">
           <select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>
             {INTERVENTION_KINDS.map((k) => (
               <option key={k} value={k}>
@@ -160,20 +172,23 @@ function Boosts(props: {
             value={spend}
             onChange={(e) => setSpend(e.target.value)}
             placeholder="Spend £"
-            className={`w-24 ${inputCls}`}
+            className={`w-20 ${inputCls}`}
           />
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Notes"
-            className={`flex-1 min-w-32 ${inputCls}`}
+            className={`min-w-32 flex-1 ${inputCls}`}
           />
-          <button className="rounded border border-edge px-3 py-1.5 hover:bg-edge" type="submit">
+          <button
+            className="rounded-full bg-ink px-4 py-1 text-[13px] text-paper hover:opacity-90"
+            type="submit"
+          >
             Save
           </button>
           <button
             type="button"
-            className="text-dim hover:text-ink"
+            className="text-[13px] text-dim hover:text-ink"
             onClick={() => setShowForm(false)}
           >
             Cancel
@@ -181,10 +196,10 @@ function Boosts(props: {
         </form>
       ) : (
         <button
-          className="text-xs text-dim underline hover:text-ink"
+          className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
           onClick={() => setShowForm(true)}
         >
-          + mark as boosted / clipped
+          Mark as boosted / clipped
         </button>
       )}
     </section>
@@ -216,9 +231,7 @@ function Streaming(props: {
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-dim">
-        Spotify impact
-      </h3>
+      <Heading>Spotify impact</Heading>
       {props.captures.map((c) => (
         <p key={c.id} className="mb-1.5">
           {c.track_name ?? "Unknown track"}
@@ -236,11 +249,11 @@ function Streaming(props: {
         onChange={(e) => onFile(e.target.files?.[0])}
       />
       <button
-        className="text-xs text-dim underline hover:text-ink disabled:opacity-50"
+        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink disabled:opacity-50"
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        {busy ? "Reading screenshot…" : "+ upload Spotify screenshot"}
+        {busy ? "Reading screenshot…" : "Upload Spotify screenshot"}
       </button>
     </section>
   );

@@ -6,8 +6,8 @@
 // the numbers with the Anthropic API, records them via mx_add_streaming_capture
 // and returns the parsed capture.
 //
-// Secrets required: ANTHROPIC_API_KEY. Optional: MX_ALLOWED_EMAILS
-// (comma-separated; when set, callers outside the list get 403).
+// Secrets required: ANTHROPIC_API_KEY. Only the mx-internal service account
+// (issued by mx-login) may call this.
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -65,12 +65,12 @@ const EXTRACT_SCHEMA = {
     listeners: { type: ["integer", "null"] },
     saves: { type: ["integer", "null"] },
     playlist_adds: { type: ["integer", "null"] },
-    src_library: { type: ["number", "null"] },
-    src_external: { type: ["number", "null"] },
-    src_search: { type: ["number", "null"] },
-    src_queue: { type: ["number", "null"] },
-    src_algorithmic: { type: ["number", "null"] },
-    src_editorial: { type: ["number", "null"] },
+    src_library: { type: ["integer", "null"] },
+    src_external: { type: ["integer", "null"] },
+    src_search: { type: ["integer", "null"] },
+    src_queue: { type: ["integer", "null"] },
+    src_algorithmic: { type: ["integer", "null"] },
+    src_editorial: { type: ["integer", "null"] },
   },
 };
 
@@ -100,13 +100,8 @@ Deno.serve(async (req: Request) => {
     if (userErr || !userData.user) {
       return json({ error: "Not authenticated" }, 401);
     }
-    const allowed = (Deno.env.get("MX_ALLOWED_EMAILS") ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const email = userData.user.email?.toLowerCase() ?? "";
-    if (allowed.length > 0 && !allowed.includes(email)) {
-      return json({ error: "Not on the access list" }, 403);
+    if (userData.user.email?.toLowerCase() !== "mx-internal@dttrsocialmetrics.app") {
+      return json({ error: "Not authorized" }, 403);
     }
 
     const { data: blob, error: dlErr } = await supabase.storage
@@ -154,8 +149,8 @@ Deno.serve(async (req: Request) => {
                 "playlist adds are integers — expand abbreviations (1.2K = 1200, 1.2M = 1200000). " +
                 "The src_* fields are the source-of-streams breakdown (listener's own " +
                 "library, external/direct, search, queue/autoplay, algorithmic playlists, " +
-                "editorial playlists) — record each as the number shown (percentage or " +
-                "count). Use null for anything not visible in the screenshot. Do not " +
+                "editorial playlists) — record each as a whole number (round " +
+                "percentages to the nearest integer). Use null for anything not visible in the screenshot. Do not " +
                 "guess or infer values that are not shown.",
             },
           ],
