@@ -1,4 +1,4 @@
-import type { Brand, FlaggedPost } from "./types";
+import type { AccountScore, Brand, FlaggedPost, Period } from "./types";
 
 // Fixtures shaped like real mx_flagged_interim rows (30-day window, 2026-08).
 // Thumbnails: data-URI tiles stand in for Metricool S3 covers; one row has a
@@ -117,4 +117,16 @@ export const MOCK_BRANDS: Brand[] = [
   { id: "b3", metricool_blog_id: 333, name: "Twin Atlantic", brand_type: "artist", owner: "Sam", active: true },
   { id: "b4", metricool_blog_id: 444, name: "Lofi Bloom", brand_type: "theme", owner: "Sam", active: true },
   { id: "b5", metricool_blog_id: 555, name: "Night Drives", brand_type: "theme", owner: "Sam", active: false },
+];
+
+export const MOCK_PERIOD: Period = {
+  period_start: "2026-07-12",
+  period_end: "2026-08-11",
+  period_days: 30,
+};
+
+export const MOCK_ACCOUNT_SCORES: AccountScore[] = [
+  { brand_name: "L'objectif", brand_type: "artist", owner: "Sam", posts: 28, total_score: 93.9, avg_multiple: 3.4, total_views: 120453, best_multiple: 65.7 },
+  { brand_name: "Tommy Ashby - The Birds", brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
+  { brand_name: "Lofi Bloom", brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
 ];

@@ -1,10 +1,12 @@
 import { supabase, MOCK } from "./supabase";
 import { num } from "./format";
-import { MOCK_BRANDS, MOCK_FLAGGED } from "./mock";
+import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./mock";
 import type {
+  AccountScore,
   Brand,
   FlaggedPost,
   Intervention,
+  Period,
   PostNote,
   StreamingCapture,
 } from "./types";
@@ -60,6 +62,38 @@ export async function fetchRecent(): Promise<FlaggedPost[]> {
 export async function fetchBest(): Promise<FlaggedPost[]> {
   if (MOCK) return MOCK_FLAGGED;
   return fetchView("mx_best", "views_multiple", false);
+}
+
+/** Top 10 posts by raw views, last 30 days — reach, not outperformance. */
+export async function fetchTopViews(): Promise<FlaggedPost[]> {
+  if (MOCK) return [...MOCK_FLAGGED].sort((a, b) => b.views - a.views);
+  return fetchView("mx_top_views", "views", false);
+}
+
+/** The 30-day window every view reports over. */
+export async function fetchPeriod(): Promise<Period | null> {
+  if (MOCK) return MOCK_PERIOD;
+  const { data, error } = await supabase.from("mx_period").select("*").limit(1);
+  fail(error);
+  return (data?.[0] as Period) ?? null;
+}
+
+/** Per-account summed multiples over the period. */
+export async function fetchAccountScores(): Promise<AccountScore[]> {
+  if (MOCK) return MOCK_ACCOUNT_SCORES;
+  const { data, error } = await supabase
+    .from("mx_account_scores")
+    .select("*")
+    .order("total_score", { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    posts: num(r.posts) ?? 0,
+    total_score: num(r.total_score) ?? 0,
+    avg_multiple: num(r.avg_multiple) ?? 0,
+    total_views: num(r.total_views) ?? 0,
+    best_multiple: num(r.best_multiple),
+  }));
 }
 
 export async function fetchNotes(ids: string[]): Promise<PostNote[]> {

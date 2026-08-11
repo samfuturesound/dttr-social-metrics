@@ -7,26 +7,31 @@ import {
 } from "react";
 import { supabase, MOCK } from "../lib/supabase";
 import {
+  fetchAccountScores,
   fetchBest,
   fetchBrands,
   fetchFlagged,
   fetchInterventions,
   fetchNotes,
+  fetchPeriod,
   fetchRecent,
   fetchStreaming,
+  fetchTopViews,
 } from "../lib/data";
-import { todayLabel } from "../lib/format";
+import { compact, fullDate, todayLabel } from "../lib/format";
 import type {
+  AccountScore,
   Brand,
   FlaggedPost,
   Intervention,
+  Period,
   PostNote,
   StreamingCapture,
 } from "../lib/types";
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 
-const LEADING_COUNT = 5;
+const LEADING_COUNT = 10;
 
 function useCollapse(id: string, defaultOpen: boolean) {
   const [open, setOpen] = useState<boolean>(() => {
@@ -46,6 +51,9 @@ export default function Dashboard() {
   const [flagged, setFlagged] = useState<FlaggedPost[] | null>(null);
   const [recent, setRecent] = useState<FlaggedPost[]>([]);
   const [best, setBest] = useState<FlaggedPost[]>([]);
+  const [topViews, setTopViews] = useState<FlaggedPost[]>([]);
+  const [scores, setScores] = useState<AccountScore[]>([]);
+  const [period, setPeriod] = useState<Period | null>(null);
   const [notes, setNotes] = useState<PostNote[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [streaming, setStreaming] = useState<StreamingCapture[]>([]);
@@ -56,18 +64,24 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [fl, re, be, allBrands] = await Promise.all([
+      const [fl, re, be, tv, sc, pd, allBrands] = await Promise.all([
         fetchFlagged(),
         fetchRecent(),
         fetchBest(),
+        fetchTopViews(),
+        fetchAccountScores(),
+        fetchPeriod(),
         fetchBrands(),
       ]);
       setFlagged(fl);
       setRecent(re);
       setBest(be);
+      setTopViews(tv);
+      setScores(sc);
+      setPeriod(pd);
       setBrands(allBrands);
       const ids = [
-        ...new Set([...fl, ...re, ...be].map((p) => p.external_id)),
+        ...new Set([...fl, ...re, ...be, ...tv].map((p) => p.external_id)),
       ];
       const [n, i, s] = await Promise.all([
         fetchNotes(ids),
@@ -135,7 +149,7 @@ export default function Dashboard() {
         <h1 className="mt-3 font-serif text-4xl tracking-tight">
           {todayLabel()}
         </h1>
-        <ScoreExplainer />
+        <ScoreExplainer period={period} />
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
@@ -206,6 +220,56 @@ export default function Dashboard() {
               <PostList listId="best-themes" posts={bestThemes} {...rowProps} reload={load} />
             )}
           </Section>
+
+          <Section id="most-viewed" title="Most viewed" count={topViews.length}>
+            {topViews.length === 0 ? (
+              <Empty>Nothing yet.</Empty>
+            ) : (
+              <PostList
+                listId="most-viewed"
+                posts={topViews}
+                variant="reach"
+                {...rowProps}
+                reload={load}
+              />
+            )}
+          </Section>
+
+          <Section
+            id="leaderboard"
+            title="Account leaderboard"
+            count={scores.length}
+            subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
+          >
+            {scores.length === 0 ? (
+              <Empty>Nothing scored yet.</Empty>
+            ) : (
+              <ul className="divide-y divide-line">
+                {scores.map((a) => (
+                  <li key={a.brand_name} className="flex items-center gap-4 py-4">
+                    <span className="w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent">
+                      {a.total_score >= 100
+                        ? Math.round(a.total_score)
+                        : a.total_score.toFixed(1)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-[15px] font-semibold">
+                          {a.brand_name}
+                        </span>
+                        <span className="text-xs text-dim">{a.brand_type}</span>
+                      </span>
+                      <span className="mt-1 block text-[13px] text-dim">
+                        {a.posts} post{a.posts === 1 ? "" : "s"} ·{" "}
+                        {a.avg_multiple.toFixed(1)}× average ·{" "}
+                        {compact(a.total_views)} views
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
         </div>
       )}
 
@@ -220,7 +284,7 @@ export default function Dashboard() {
   );
 }
 
-function ScoreExplainer() {
+function ScoreExplainer({ period }: { period: Period | null }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-2">
@@ -251,6 +315,12 @@ function ScoreExplainer() {
             account needs at least ten posts of history before anything is
             scored.
           </p>
+          {period && (
+            <p>
+              Posts published between {fullDate(period.period_start)} and{" "}
+              {fullDate(period.period_end)}.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -266,6 +336,7 @@ function Section(props: {
   title: string;
   count: number;
   defaultOpen?: boolean;
+  subtitle?: string;
   children: ReactNode;
 }) {
   const [open, toggle] = useCollapse(props.id, props.defaultOpen ?? false);
@@ -284,6 +355,11 @@ function Section(props: {
           {open ? "–" : "+"}
         </span>
       </button>
+      {open && props.subtitle && (
+        <p className="max-w-prose pt-3 text-[13px] leading-relaxed text-dim">
+          {props.subtitle}
+        </p>
+      )}
       {open && props.children}
     </section>
   );
@@ -298,7 +374,7 @@ function PostList(props: {
   openId: string | null;
   setOpenId: (id: string | null) => void;
   reload: () => Promise<void>;
-  variant?: "score" | "feed";
+  variant?: "score" | "feed" | "reach";
 }) {
   return (
     <ul className="divide-y divide-line">

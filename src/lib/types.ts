@@ -83,3 +83,20 @@ export const INTERVENTION_LABELS: Record<Intervention["kind"], string> = {
   clipping: "Clipping",
   other: "Other",
 };
+
+export interface Period {
+  period_start: string;
+  period_end: string;
+  period_days: number;
+}
+
+export interface AccountScore {
+  brand_name: string;
+  brand_type: BrandType;
+  owner: string | null;
+  posts: number;
+  total_score: number;
+  avg_multiple: number;
+  total_views: number;
+  best_multiple: number | null;
+}

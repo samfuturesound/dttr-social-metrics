@@ -44,8 +44,8 @@ function Thumb({ url }: { url: string | null }) {
 
 /**
  * variant "score" (default): the multiple leads — Leading / Best Performing.
- * variant "feed": recency leads, the multiple sits quiet on the right —
- * the Latest sections.
+ * variant "feed": recency leads, the multiple sits quiet on the right.
+ * variant "reach": raw views lead — Most Viewed; the multiple is meta.
  */
 export default function PostRow(props: {
   post: FlaggedPost;
@@ -55,31 +55,31 @@ export default function PostRow(props: {
   open: boolean;
   onToggle: () => void;
   reload: () => Promise<void>;
-  variant?: "score" | "feed";
+  variant?: "score" | "feed" | "reach";
 }) {
   const { post, open } = props;
   const feed = props.variant === "feed";
+  const reach = props.variant === "reach";
   const isReel = post.content_type === "reels";
+  const noteCount = props.notes.length;
 
   return (
     <li>
-      <button
-        className="flex w-full items-center gap-4 py-4 text-left"
-        onClick={props.onToggle}
-        aria-expanded={open}
-      >
+      <div className="flex w-full items-center gap-4 py-4">
         <Thumb url={post.thumbnail_url} />
 
-        {/* In score rows the multiple is the loudest thing on the page */}
+        {/* Headline number: the multiple (score) or raw views (reach) */}
         {!feed && (
           <span
             className={
-              post.is_assisted
-                ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
-                : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
+              reach
+                ? "w-18 shrink-0 text-right font-serif text-2xl leading-none text-accent"
+                : post.is_assisted
+                  ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
+                  : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
             }
           >
-            {multiple(post.views_multiple)}
+            {reach ? compact(post.views) : multiple(post.views_multiple)}
           </span>
         )}
 
@@ -104,12 +104,18 @@ export default function PostRow(props: {
             </span>
           )}
           <span className="mt-1 block text-[13px] text-dim">
-            {feed ? (
-              <span className="text-ink">{age(post.age_days)} old</span>
+            <span className={feed ? "text-ink" : undefined}>
+              {age(post.age_days)} old
+            </span>
+            {reach ? (
+              <> · {multiple(post.views_multiple)} its baseline</>
             ) : (
-              <span>{age(post.age_days)} old</span>
-            )}{" "}
-            · {compact(post.views)} views vs {compact(post.median_views)} median
+              <>
+                {" "}
+                · {compact(post.views)} views vs {compact(post.median_views)}{" "}
+                median
+              </>
+            )}
             {isReel &&
               (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
                 <span className="text-ink">
@@ -123,12 +129,14 @@ export default function PostRow(props: {
                     `${post.avg_watch_seconds.toFixed(1)}s watch`}
                 </span>
               )}
-            {props.notes.length > 0 && (
-              <span>
-                {" "}
-                · {props.notes.length} note{props.notes.length > 1 ? "s" : ""}
-              </span>
-            )}
+            {" · "}
+            <button
+              className="underline underline-offset-2 hover:text-ink"
+              onClick={props.onToggle}
+              aria-expanded={open}
+            >
+              Notes{noteCount > 0 ? ` (${noteCount})` : ""}
+            </button>
           </span>
         </span>
 
@@ -149,7 +157,6 @@ export default function PostRow(props: {
             href={post.permalink}
             target="_blank"
             rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
             className="shrink-0 self-center p-1 text-dim/70 hover:text-ink"
             title="Open post"
           >
@@ -160,7 +167,7 @@ export default function PostRow(props: {
             </svg>
           </a>
         )}
-      </button>
+      </div>
 
       {open && <PostDetail {...props} />}
     </li>

@@ -41,3 +41,10 @@ export function todayLabel(): string {
     month: "long",
   });
 }
+
+export function fullDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+  });
+}

@@ -241,6 +241,15 @@ function Streaming(props: {
           {c.pct_active !== null && `, ${Math.round(c.pct_active)}% active`}
         </p>
       ))}
+      <p className="mb-2 max-w-prose text-[13px] leading-relaxed text-dim">
+        Spotify for Artists → Music → Songs → click the track. Set the range
+        to 28 days and screenshot the full song page, making sure the Source
+        of Streams breakdown is visible.
+      </p>
+      <p className="mb-2 max-w-prose text-[13px] leading-relaxed text-dim">
+        Take it about a week after the post — streams lag social by several
+        days.
+      </p>
       <input
         ref={fileRef}
         type="file"
@@ -253,7 +262,7 @@ function Streaming(props: {
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        {busy ? "Reading screenshot…" : "Upload Spotify screenshot"}
+        {busy ? "Reading screenshot…" : "Upload screenshot"}
       </button>
     </section>
   );
