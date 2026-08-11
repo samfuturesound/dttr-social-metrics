@@ -15,11 +15,8 @@ function fail(error: { message: string } | null): void {
 
 /**
  * Flagged posts, sorted by views_multiple desc. Reads mx_flagged_interim
- * (median-based, works on backfilled data); switch the view name to
- * mx_flagged once ~4 weeks of daily snapshots exist.
- *
- * avg_watch_seconds lives on mx_snapshots, not the interim view, so it is
- * joined in here for reels (latest capture per item).
+ * (median-based, last 30 days); switch the view name to mx_flagged once
+ * ~4 weeks of daily snapshots exist.
  */
 export async function fetchFlagged(): Promise<FlaggedPost[]> {
   if (MOCK) return MOCK_FLAGGED;
@@ -38,29 +35,8 @@ export async function fetchFlagged(): Promise<FlaggedPost[]> {
     engagement_pct: num(r.engagement_pct),
     skip_rate: num(r.skip_rate),
     age_days: num(r.age_days) ?? 0,
-    avg_watch_seconds: null,
+    avg_watch_seconds: num(r.avg_watch_seconds),
   }));
-
-  const reelIds = posts
-    .filter((p) => p.content_type === "reels")
-    .map((p) => p.external_id);
-  if (reelIds.length > 0) {
-    const { data: snaps, error: snapErr } = await supabase
-      .from("mx_snapshots")
-      .select("external_id, avg_watch_seconds, captured_on")
-      .in("external_id", reelIds)
-      .order("captured_on", { ascending: false });
-    fail(snapErr);
-    const latest = new Map<string, number | null>();
-    for (const s of snaps ?? []) {
-      if (!latest.has(s.external_id))
-        latest.set(s.external_id, num(s.avg_watch_seconds));
-    }
-    for (const p of posts) {
-      if (latest.has(p.external_id))
-        p.avg_watch_seconds = latest.get(p.external_id) ?? null;
-    }
-  }
   return posts;
 }
 

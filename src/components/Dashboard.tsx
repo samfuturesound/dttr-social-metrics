@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase, MOCK } from "../lib/supabase";
 import {
   fetchBrands,
@@ -17,6 +23,22 @@ import type {
 } from "../lib/types";
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
+
+const LEADING_COUNT = 5;
+
+function useCollapse(id: string, defaultOpen: boolean) {
+  const [open, setOpen] = useState<boolean>(() => {
+    const v = localStorage.getItem(`mx-open:${id}`);
+    return v === null ? defaultOpen : v === "1";
+  });
+  const toggle = useCallback(() => {
+    setOpen((o) => {
+      localStorage.setItem(`mx-open:${id}`, o ? "0" : "1");
+      return !o;
+    });
+  }, [id]);
+  return [open, toggle] as const;
+}
 
 export default function Dashboard() {
   const [posts, setPosts] = useState<FlaggedPost[] | null>(null);
@@ -54,6 +76,10 @@ export default function Dashboard() {
     load();
   }, [load]);
 
+  const leading = useMemo(
+    () => (posts ?? []).slice(0, LEADING_COUNT),
+    [posts],
+  );
   const artists = useMemo(
     () => (posts ?? []).filter((p) => p.brand_type === "artist"),
     [posts],
@@ -63,6 +89,8 @@ export default function Dashboard() {
     [posts],
   );
   const activeBrands = brands.filter((b) => b.active).length;
+
+  const rowProps = { notes, interventions, streaming, openId, setOpenId };
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
@@ -108,20 +136,28 @@ export default function Dashboard() {
       )}
 
       {posts !== null && posts.length > 0 && (
-        <div className="grid gap-x-14 gap-y-12 lg:grid-cols-2">
-          <Group
-            title="Artists"
-            posts={artists}
-            {...{ notes, interventions, streaming, openId, setOpenId }}
-            reload={load}
-          />
-          <Group
-            title="Theme accounts"
-            posts={themes}
-            {...{ notes, interventions, streaming, openId, setOpenId }}
-            reload={load}
-          />
-        </div>
+        <>
+          <Section id="leading" title="Leading" count={leading.length} defaultOpen>
+            <PostList posts={leading} {...rowProps} reload={load} />
+          </Section>
+
+          <div className="mt-12 grid gap-x-14 gap-y-12 lg:grid-cols-2">
+            <Section id="artists" title="Artists" count={artists.length}>
+              {artists.length === 0 ? (
+                <p className="pt-5 text-sm text-dim">Nothing flagged.</p>
+              ) : (
+                <PostList posts={artists} {...rowProps} reload={load} />
+              )}
+            </Section>
+            <Section id="themes" title="Theme accounts" count={themes.length}>
+              {themes.length === 0 ? (
+                <p className="pt-5 text-sm text-dim">Nothing flagged.</p>
+              ) : (
+                <PostList posts={themes} {...rowProps} reload={load} />
+              )}
+            </Section>
+          </div>
+        </>
       )}
 
       {adminOpen && (
@@ -135,8 +171,35 @@ export default function Dashboard() {
   );
 }
 
-function Group(props: {
+function Section(props: {
+  id: string;
   title: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, toggle] = useCollapse(props.id, props.defaultOpen ?? false);
+  return (
+    <section>
+      <button
+        className="group flex w-full items-baseline justify-between border-b border-line pb-2 text-left"
+        onClick={toggle}
+        aria-expanded={open}
+      >
+        <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim group-hover:text-ink">
+          {props.title}
+          <span className="ml-2 font-normal text-dim/70">{props.count}</span>
+        </span>
+        <span className="font-serif text-sm leading-none text-dim/70 group-hover:text-ink">
+          {open ? "–" : "+"}
+        </span>
+      </button>
+      {open && props.children}
+    </section>
+  );
+}
+
+function PostList(props: {
   posts: FlaggedPost[];
   notes: PostNote[];
   interventions: Intervention[];
@@ -145,43 +208,28 @@ function Group(props: {
   setOpenId: (id: string | null) => void;
   reload: () => Promise<void>;
 }) {
-  const { title, posts } = props;
   return (
-    <section>
-      <h2 className="border-b border-line pb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
-        {title}
-        {posts.length > 0 && (
-          <span className="ml-2 font-normal text-dim/70">{posts.length}</span>
-        )}
-      </h2>
-      {posts.length === 0 ? (
-        <p className="pt-6 text-sm text-dim">Nothing flagged.</p>
-      ) : (
-        <ul className="divide-y divide-line">
-          {posts.map((p) => (
-            <PostRow
-              key={p.external_id}
-              post={p}
-              notes={props.notes.filter(
-                (n) => n.external_id === p.external_id,
-              )}
-              interventions={props.interventions.filter(
-                (i) => i.external_id === p.external_id,
-              )}
-              streaming={props.streaming.filter(
-                (s) => s.triggered_by_external_id === p.external_id,
-              )}
-              open={props.openId === p.external_id}
-              onToggle={() =>
-                props.setOpenId(
-                  props.openId === p.external_id ? null : p.external_id,
-                )
-              }
-              reload={props.reload}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
+    <ul className="divide-y divide-line">
+      {props.posts.map((p) => (
+        <PostRow
+          key={p.external_id}
+          post={p}
+          notes={props.notes.filter((n) => n.external_id === p.external_id)}
+          interventions={props.interventions.filter(
+            (i) => i.external_id === p.external_id,
+          )}
+          streaming={props.streaming.filter(
+            (s) => s.triggered_by_external_id === p.external_id,
+          )}
+          open={props.openId === p.external_id}
+          onToggle={() =>
+            props.setOpenId(
+              props.openId === p.external_id ? null : p.external_id,
+            )
+          }
+          reload={props.reload}
+        />
+      ))}
+    </ul>
   );
 }

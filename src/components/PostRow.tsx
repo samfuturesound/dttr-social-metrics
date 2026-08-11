@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { age, compact, multiple, shortDate } from "../lib/format";
 import type {
   FlaggedPost,
@@ -14,6 +15,33 @@ const NETWORK_LABEL: Record<string, string> = {
   facebook: "Facebook",
 };
 
+/**
+ * Post image, Metricool-grid style. Instagram CDN URLs carry expiry tokens
+ * and start 404ing after a while, so a failed load swaps to a neutral tile
+ * of the same size — never a broken-image glyph, never a layout shift.
+ */
+function Thumb({ url }: { url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) {
+    return (
+      <span
+        aria-hidden
+        className="h-12 w-12 shrink-0 self-center rounded-sm bg-line"
+      />
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="h-12 w-12 shrink-0 self-center rounded-sm object-cover"
+    />
+  );
+}
+
 export default function PostRow(props: {
   post: FlaggedPost;
   notes: PostNote[];
@@ -29,16 +57,18 @@ export default function PostRow(props: {
   return (
     <li>
       <button
-        className="flex w-full items-baseline gap-5 py-5 text-left"
+        className="flex w-full items-center gap-4 py-4 text-left"
         onClick={props.onToggle}
         aria-expanded={open}
       >
-        {/* The multiple — the loudest thing on the page */}
+        <Thumb url={post.thumbnail_url} />
+
+        {/* The multiple — still the loudest thing on the page */}
         <span
           className={
             post.is_assisted
-              ? "w-20 shrink-0 text-right font-serif text-xl text-dim"
-              : "w-20 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
+              ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
+              : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
           }
         >
           {multiple(post.views_multiple)}
@@ -49,7 +79,9 @@ export default function PostRow(props: {
             <span className="text-[15px] font-semibold">{post.brand_name}</span>
             <span className="text-xs text-dim">
               {NETWORK_LABEL[post.network] ?? post.network}{" "}
-              {post.content_type === "posts" ? "post" : post.content_type.replace(/s$/, "")}
+              {post.content_type === "posts"
+                ? "post"
+                : post.content_type.replace(/s$/, "")}
             </span>
             {post.is_assisted && post.assisted_from && (
               <span className="text-xs italic text-dim">
@@ -65,18 +97,23 @@ export default function PostRow(props: {
           <span className="mt-1 block text-[13px] text-dim">
             {age(post.age_days)} old · {compact(post.views)} views vs{" "}
             {compact(post.median_views)} median
-            {isReel && (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
-              <span className="text-ink">
-                {" · "}
-                {post.skip_rate !== null && `skip ${Math.round(post.skip_rate)}%`}
-                {post.skip_rate !== null && post.avg_watch_seconds !== null && " · "}
-                {post.avg_watch_seconds !== null &&
-                  `${post.avg_watch_seconds.toFixed(1)}s watch`}
-              </span>
-            )}
+            {isReel &&
+              (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
+                <span className="text-ink">
+                  {" · "}
+                  {post.skip_rate !== null &&
+                    `skip ${Math.round(post.skip_rate)}%`}
+                  {post.skip_rate !== null &&
+                    post.avg_watch_seconds !== null &&
+                    " · "}
+                  {post.avg_watch_seconds !== null &&
+                    `${post.avg_watch_seconds.toFixed(1)}s watch`}
+                </span>
+              )}
             {props.notes.length > 0 && (
               <span>
-                {" "}· {props.notes.length} note{props.notes.length > 1 ? "s" : ""}
+                {" "}
+                · {props.notes.length} note{props.notes.length > 1 ? "s" : ""}
               </span>
             )}
           </span>

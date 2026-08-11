@@ -36,7 +36,7 @@ export default function PostDetail(props: {
   }
 
   return (
-    <div className="space-y-6 pb-8 pl-25 pr-2 text-sm max-sm:pl-0">
+    <div className="space-y-6 pb-8 pl-34 pr-2 text-sm max-sm:pl-0">
       {err && <p className="text-accent">{err}</p>}
       <Notes
         notes={props.notes}
