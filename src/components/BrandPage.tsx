@@ -332,8 +332,8 @@ export default function BrandPage({ brand }: { brand: string }) {
               </div>
             )}
             <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
-              "All time" here means since measurements began — roughly the
-              last twelve months — not the account's whole life.
+              "All time" here means since measurements began — first post is
+              stated above — not the account's whole life.
             </p>
           </>
         )}
