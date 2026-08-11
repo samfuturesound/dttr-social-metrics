@@ -120,6 +120,8 @@ export default function Dashboard() {
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId };
   const loaded = leading !== null;
+  const windowLabel = `last ${period?.period_days ?? 30} days`;
+  const bestLabel = "last 12 months, 2.5\u00d7 or better";
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
@@ -160,6 +162,7 @@ export default function Dashboard() {
           <Section
             id="leading"
             title="Leading"
+            timescale={windowLabel}
             count={leading?.length ?? 0}
             defaultOpen
           >
@@ -173,6 +176,7 @@ export default function Dashboard() {
           <Section
             id="latest-artists"
             title="Latest artist posts"
+            timescale="most recent"
             count={latestArtists.length}
             defaultOpen
           >
@@ -186,6 +190,7 @@ export default function Dashboard() {
           <Section
             id="latest-themes"
             title="Latest theme account posts"
+            timescale="most recent"
             count={latestThemes.length}
             defaultOpen
           >
@@ -199,6 +204,7 @@ export default function Dashboard() {
           <Section
             id="best-artists"
             title="Best performing artist posts"
+            timescale={bestLabel}
             count={bestArtists.length}
           >
             {bestArtists.length === 0 ? (
@@ -211,6 +217,7 @@ export default function Dashboard() {
           <Section
             id="best-themes"
             title="Best performing theme posts"
+            timescale={bestLabel}
             count={bestThemes.length}
           >
             {bestThemes.length === 0 ? (
@@ -220,7 +227,12 @@ export default function Dashboard() {
             )}
           </Section>
 
-          <Section id="most-viewed" title="Most viewed" count={topViews.length}>
+          <Section
+            id="most-viewed"
+            title="Most viewed"
+            timescale={windowLabel}
+            count={topViews.length}
+          >
             {topViews.length === 0 ? (
               <Empty>Nothing yet.</Empty>
             ) : (
@@ -237,6 +249,7 @@ export default function Dashboard() {
           <Section
             id="leaderboard"
             title="Account leaderboard"
+            timescale={windowLabel}
             count={scores.length}
             subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
           >
@@ -334,6 +347,7 @@ function Section(props: {
   id: string;
   title: string;
   count: number;
+  timescale?: string;
   defaultOpen?: boolean;
   subtitle?: string;
   children: ReactNode;
@@ -348,6 +362,11 @@ function Section(props: {
       >
         <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim group-hover:text-ink">
           {props.title}
+          {props.timescale && (
+            <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-dim/70">
+              ({props.timescale})
+            </span>
+          )}
           <span className="ml-2 font-normal text-dim/70">{props.count}</span>
         </span>
         <span className="font-serif text-sm leading-none text-dim/70 group-hover:text-ink">
