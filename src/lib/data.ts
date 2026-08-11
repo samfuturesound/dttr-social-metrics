@@ -13,22 +13,9 @@ function fail(error: { message: string } | null): void {
   if (error) throw new Error(error.message);
 }
 
-/**
- * Flagged posts, sorted by views_multiple desc. Reads mx_flagged_interim
- * (median-based, last 30 days); switch the view name to mx_flagged once
- * ~4 weeks of daily snapshots exist.
- */
-export async function fetchFlagged(): Promise<FlaggedPost[]> {
-  if (MOCK) return MOCK_FLAGGED;
-
-  const { data, error } = await supabase
-    .from("mx_flagged_interim")
-    .select("*")
-    .order("views_multiple", { ascending: false });
-  fail(error);
-
-  const posts: FlaggedPost[] = (data ?? []).map((r) => ({
-    ...r,
+function mapPost(r: Record<string, unknown>): FlaggedPost {
+  return {
+    ...(r as unknown as FlaggedPost),
     views: num(r.views) ?? 0,
     median_views: num(r.median_views) ?? 0,
     views_multiple: num(r.views_multiple) ?? 0,
@@ -36,8 +23,43 @@ export async function fetchFlagged(): Promise<FlaggedPost[]> {
     skip_rate: num(r.skip_rate),
     age_days: num(r.age_days) ?? 0,
     avg_watch_seconds: num(r.avg_watch_seconds),
-  }));
-  return posts;
+  };
+}
+
+async function fetchView(
+  view: string,
+  orderCol: string,
+  ascending: boolean,
+): Promise<FlaggedPost[]> {
+  const { data, error } = await supabase
+    .from(view)
+    .select("*")
+    .order(orderCol, { ascending });
+  fail(error);
+  return (data ?? []).map(mapPost);
+}
+
+/**
+ * All three flagged/feed views share one column shape:
+ *  - mx_flagged_interim: beating baseline, last 30 days (switch to mx_flagged
+ *    once ~4 weeks of daily snapshots exist)
+ *  - mx_recent: every post from the last 14 days, no threshold
+ *  - mx_best: beating baseline, last 12 months
+ */
+export async function fetchFlagged(): Promise<FlaggedPost[]> {
+  if (MOCK) return MOCK_FLAGGED;
+  return fetchView("mx_flagged_interim", "views_multiple", false);
+}
+
+export async function fetchRecent(): Promise<FlaggedPost[]> {
+  if (MOCK)
+    return [...MOCK_FLAGGED].sort((a, b) => a.age_days - b.age_days);
+  return fetchView("mx_recent", "published_at", false);
+}
+
+export async function fetchBest(): Promise<FlaggedPost[]> {
+  if (MOCK) return MOCK_FLAGGED;
+  return fetchView("mx_best", "views_multiple", false);
 }
 
 export async function fetchNotes(ids: string[]): Promise<PostNote[]> {

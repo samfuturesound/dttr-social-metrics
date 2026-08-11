@@ -42,6 +42,11 @@ function Thumb({ url }: { url: string | null }) {
   );
 }
 
+/**
+ * variant "score" (default): the multiple leads — Leading / Best Performing.
+ * variant "feed": recency leads, the multiple sits quiet on the right —
+ * the Latest sections.
+ */
 export default function PostRow(props: {
   post: FlaggedPost;
   notes: PostNote[];
@@ -50,8 +55,10 @@ export default function PostRow(props: {
   open: boolean;
   onToggle: () => void;
   reload: () => Promise<void>;
+  variant?: "score" | "feed";
 }) {
   const { post, open } = props;
+  const feed = props.variant === "feed";
   const isReel = post.content_type === "reels";
 
   return (
@@ -63,16 +70,18 @@ export default function PostRow(props: {
       >
         <Thumb url={post.thumbnail_url} />
 
-        {/* The multiple — still the loudest thing on the page */}
-        <span
-          className={
-            post.is_assisted
-              ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
-              : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
-          }
-        >
-          {multiple(post.views_multiple)}
-        </span>
+        {/* In score rows the multiple is the loudest thing on the page */}
+        {!feed && (
+          <span
+            className={
+              post.is_assisted
+                ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
+                : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
+            }
+          >
+            {multiple(post.views_multiple)}
+          </span>
+        )}
 
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
@@ -95,8 +104,12 @@ export default function PostRow(props: {
             </span>
           )}
           <span className="mt-1 block text-[13px] text-dim">
-            {age(post.age_days)} old · {compact(post.views)} views vs{" "}
-            {compact(post.median_views)} median
+            {feed ? (
+              <span className="text-ink">{age(post.age_days)} old</span>
+            ) : (
+              <span>{age(post.age_days)} old</span>
+            )}{" "}
+            · {compact(post.views)} views vs {compact(post.median_views)} median
             {isReel &&
               (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
                 <span className="text-ink">
@@ -118,6 +131,18 @@ export default function PostRow(props: {
             )}
           </span>
         </span>
+
+        {feed && (
+          <span
+            className={
+              post.is_assisted
+                ? "shrink-0 self-center font-serif text-sm italic text-dim/70"
+                : "shrink-0 self-center font-serif text-base text-dim"
+            }
+          >
+            {multiple(post.views_multiple)}
+          </span>
+        )}
 
         {post.permalink && (
           <a

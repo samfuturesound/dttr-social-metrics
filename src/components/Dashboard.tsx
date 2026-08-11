@@ -7,10 +7,12 @@ import {
 } from "react";
 import { supabase, MOCK } from "../lib/supabase";
 import {
+  fetchBest,
   fetchBrands,
   fetchFlagged,
   fetchInterventions,
   fetchNotes,
+  fetchRecent,
   fetchStreaming,
 } from "../lib/data";
 import { todayLabel } from "../lib/format";
@@ -41,7 +43,9 @@ function useCollapse(id: string, defaultOpen: boolean) {
 }
 
 export default function Dashboard() {
-  const [posts, setPosts] = useState<FlaggedPost[] | null>(null);
+  const [flagged, setFlagged] = useState<FlaggedPost[] | null>(null);
+  const [recent, setRecent] = useState<FlaggedPost[]>([]);
+  const [best, setBest] = useState<FlaggedPost[]>([]);
   const [notes, setNotes] = useState<PostNote[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [streaming, setStreaming] = useState<StreamingCapture[]>([]);
@@ -52,13 +56,19 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [flagged, allBrands] = await Promise.all([
+      const [fl, re, be, allBrands] = await Promise.all([
         fetchFlagged(),
+        fetchRecent(),
+        fetchBest(),
         fetchBrands(),
       ]);
-      setPosts(flagged);
+      setFlagged(fl);
+      setRecent(re);
+      setBest(be);
       setBrands(allBrands);
-      const ids = flagged.map((p) => p.external_id);
+      const ids = [
+        ...new Set([...fl, ...re, ...be].map((p) => p.external_id)),
+      ];
       const [n, i, s] = await Promise.all([
         fetchNotes(ids),
         fetchInterventions(ids),
@@ -77,20 +87,28 @@ export default function Dashboard() {
   }, [load]);
 
   const leading = useMemo(
-    () => (posts ?? []).slice(0, LEADING_COUNT),
-    [posts],
+    () => (flagged ?? []).slice(0, LEADING_COUNT),
+    [flagged],
   );
-  const artists = useMemo(
-    () => (posts ?? []).filter((p) => p.brand_type === "artist"),
-    [posts],
+  const latestArtists = useMemo(
+    () => recent.filter((p) => p.brand_type === "artist"),
+    [recent],
   );
-  const themes = useMemo(
-    () => (posts ?? []).filter((p) => p.brand_type === "theme"),
-    [posts],
+  const latestThemes = useMemo(
+    () => recent.filter((p) => p.brand_type === "theme"),
+    [recent],
   );
-  const activeBrands = brands.filter((b) => b.active).length;
+  const bestArtists = useMemo(
+    () => best.filter((p) => p.brand_type === "artist"),
+    [best],
+  );
+  const bestThemes = useMemo(
+    () => best.filter((p) => p.brand_type === "theme"),
+    [best],
+  );
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId };
+  const loaded = flagged !== null;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
@@ -117,47 +135,78 @@ export default function Dashboard() {
         <h1 className="mt-3 font-serif text-4xl tracking-tight">
           {todayLabel()}
         </h1>
+        <ScoreExplainer />
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
 
-      {posts === null && !error && (
+      {!loaded && !error && (
         <p className="py-24 text-center text-sm text-dim">Loading…</p>
       )}
 
-      {posts !== null && posts.length === 0 && (
-        <div className="py-28 text-center">
-          <p className="font-serif text-4xl">All quiet.</p>
-          <p className="mt-3 text-sm text-dim">
-            Nothing is beating its baseline this morning
-            {activeBrands > 0 ? ` across ${activeBrands} active brands` : ""}.
-          </p>
-        </div>
-      )}
-
-      {posts !== null && posts.length > 0 && (
-        <>
+      {loaded && (
+        <div className="space-y-12">
           <Section id="leading" title="Leading" count={leading.length} defaultOpen>
-            <PostList posts={leading} {...rowProps} reload={load} />
+            {leading.length === 0 ? (
+              <Empty>Nothing is beating its baseline this morning.</Empty>
+            ) : (
+              <PostList listId="leading" posts={leading} {...rowProps} reload={load} />
+            )}
           </Section>
 
-          <div className="mt-12 grid gap-x-14 gap-y-12 lg:grid-cols-2">
-            <Section id="artists" title="Artists" count={artists.length}>
-              {artists.length === 0 ? (
-                <p className="pt-5 text-sm text-dim">Nothing flagged.</p>
-              ) : (
-                <PostList posts={artists} {...rowProps} reload={load} />
-              )}
-            </Section>
-            <Section id="themes" title="Theme accounts" count={themes.length}>
-              {themes.length === 0 ? (
-                <p className="pt-5 text-sm text-dim">Nothing flagged.</p>
-              ) : (
-                <PostList posts={themes} {...rowProps} reload={load} />
-              )}
-            </Section>
-          </div>
-        </>
+          <Section
+            id="latest-artists"
+            title="Latest artist posts"
+            count={latestArtists.length}
+            defaultOpen
+          >
+            {latestArtists.length === 0 ? (
+              <Empty>Nothing posted in the last two weeks.</Empty>
+            ) : (
+              <PostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
+            )}
+          </Section>
+
+          <Section
+            id="latest-themes"
+            title="Latest theme account posts"
+            count={latestThemes.length}
+            defaultOpen
+          >
+            {latestThemes.length === 0 ? (
+              <Empty>
+                Nothing yet — these accounts are about to start posting. Their
+                first posts will appear here.
+              </Empty>
+            ) : (
+              <PostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
+            )}
+          </Section>
+
+          <Section
+            id="best-artists"
+            title="Best performing artist posts"
+            count={bestArtists.length}
+          >
+            {bestArtists.length === 0 ? (
+              <Empty>Nothing has beaten its baseline yet.</Empty>
+            ) : (
+              <PostList listId="best-artists" posts={bestArtists} {...rowProps} reload={load} />
+            )}
+          </Section>
+
+          <Section
+            id="best-themes"
+            title="Best performing theme posts"
+            count={bestThemes.length}
+          >
+            {bestThemes.length === 0 ? (
+              <Empty>Nothing has beaten its baseline yet.</Empty>
+            ) : (
+              <PostList listId="best-themes" posts={bestThemes} {...rowProps} reload={load} />
+            )}
+          </Section>
+        </div>
       )}
 
       {adminOpen && (
@@ -169,6 +218,47 @@ export default function Dashboard() {
       )}
     </div>
   );
+}
+
+function ScoreExplainer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2">
+      <button
+        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+        onClick={() => setOpen((o) => !o)}
+      >
+        What does <span className="font-serif">3×</span> mean?
+      </button>
+      {open && (
+        <div className="mt-3 max-w-prose space-y-2 text-sm leading-relaxed text-dim">
+          <p>
+            The multiple compares a post to what's normal for its own account.{" "}
+            <span className="font-serif text-ink">3×</span> means three times
+            the views of a typical post from that account, on that platform,
+            in that format.
+          </p>
+          <p>
+            Typical is the median of the account's recent posts — so a small
+            account's breakout isn't buried under a big account's ordinary
+            day. It measures unusualness, not quality: a{" "}
+            <span className="font-serif text-ink">60×</span> post on a quiet
+            account may still have fewer views than an ordinary post on a busy
+            one.
+          </p>
+          <p>
+            Posts we've paid to boost are excluded from the comparison, and an
+            account needs at least ten posts of history before anything is
+            scored.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return <p className="pt-5 text-sm text-dim">{children}</p>;
 }
 
 function Section(props: {
@@ -200,6 +290,7 @@ function Section(props: {
 }
 
 function PostList(props: {
+  listId: string;
   posts: FlaggedPost[];
   notes: PostNote[];
   interventions: Intervention[];
@@ -207,29 +298,34 @@ function PostList(props: {
   openId: string | null;
   setOpenId: (id: string | null) => void;
   reload: () => Promise<void>;
+  variant?: "score" | "feed";
 }) {
   return (
     <ul className="divide-y divide-line">
-      {props.posts.map((p) => (
-        <PostRow
-          key={p.external_id}
-          post={p}
-          notes={props.notes.filter((n) => n.external_id === p.external_id)}
-          interventions={props.interventions.filter(
-            (i) => i.external_id === p.external_id,
-          )}
-          streaming={props.streaming.filter(
-            (s) => s.triggered_by_external_id === p.external_id,
-          )}
-          open={props.openId === p.external_id}
-          onToggle={() =>
-            props.setOpenId(
-              props.openId === p.external_id ? null : p.external_id,
-            )
-          }
-          reload={props.reload}
-        />
-      ))}
+      {props.posts.map((p) => {
+        // Scoped per section — the same post can appear in Leading, Latest
+        // and Best, and expanding it in one shouldn't expand it everywhere.
+        const rowId = `${props.listId}:${p.external_id}`;
+        return (
+          <PostRow
+            key={p.external_id}
+            post={p}
+            variant={props.variant}
+            notes={props.notes.filter((n) => n.external_id === p.external_id)}
+            interventions={props.interventions.filter(
+              (i) => i.external_id === p.external_id,
+            )}
+            streaming={props.streaming.filter(
+              (s) => s.triggered_by_external_id === p.external_id,
+            )}
+            open={props.openId === rowId}
+            onToggle={() =>
+              props.setOpenId(props.openId === rowId ? null : rowId)
+            }
+            reload={props.reload}
+          />
+        );
+      })}
     </ul>
   );
 }
