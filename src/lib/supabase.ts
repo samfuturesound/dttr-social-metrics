@@ -19,7 +19,13 @@ export async function sharedLogin(password: string): Promise<void> {
     body: JSON.stringify({ password }),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? "Sign-in failed");
+  if (!res.ok) {
+    throw new Error(
+      res.status === 401
+        ? "Wrong password."
+        : (body.error ?? body.message ?? `Sign-in failed (${res.status})`),
+    );
+  }
   const { error } = await supabase.auth.setSession({
     access_token: body.access_token,
     refresh_token: body.refresh_token,

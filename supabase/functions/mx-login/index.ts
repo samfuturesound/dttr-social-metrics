@@ -66,8 +66,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { password } = await req.json();
-    const expected = Deno.env.get("MX_SHARED_PASSWORD") ?? "DTTR";
-    if (typeof password !== "string" || !timingSafeEqual(password, expected)) {
+    const expected = (Deno.env.get("MX_SHARED_PASSWORD") ?? "DTTR").trim();
+    if (
+      typeof password !== "string" ||
+      !timingSafeEqual(password.trim(), expected)
+    ) {
       await new Promise((r) => setTimeout(r, 500));
       return json({ error: "Wrong password" }, 401);
     }

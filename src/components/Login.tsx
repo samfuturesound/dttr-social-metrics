@@ -11,7 +11,7 @@ export default function Login() {
     setBusy(true);
     setError(null);
     try {
-      await sharedLogin(password);
+      await sharedLogin(password.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -29,6 +29,7 @@ export default function Login() {
           type="password"
           required
           autoFocus
+          autoComplete="one-time-code"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
