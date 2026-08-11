@@ -125,11 +125,9 @@ Deno.serve(async (req: Request) => {
       apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
     });
 
-    const response = await anthropic.beta.messages.create({
-      model: "claude-opus-5",
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-5",
       max_tokens: 2048,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       output_config: {
         format: { type: "json_schema", schema: EXTRACT_SCHEMA },
       },
