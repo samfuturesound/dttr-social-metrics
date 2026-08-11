@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { age, compact, multiple, shortDate } from "../lib/format";
 import type {
   FlaggedPost,
@@ -8,6 +7,7 @@ import type {
 } from "../lib/types";
 import PostDetail from "./PostDetail";
 import { brandPath, navigate } from "../lib/router";
+import { Thumb } from "./BrandRow";
 
 const NETWORK_LABEL: Record<string, string> = {
   instagram: "Instagram",
@@ -15,33 +15,6 @@ const NETWORK_LABEL: Record<string, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
 };
-
-/**
- * Post image, Metricool-grid style. Instagram CDN URLs carry expiry tokens
- * and start 404ing after a while, so a failed load swaps to a neutral tile
- * of the same size — never a broken-image glyph, never a layout shift.
- */
-export function Thumb({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  if (!url || failed) {
-    return (
-      <span
-        aria-hidden
-        className="h-12 w-12 shrink-0 self-center rounded-sm bg-line"
-      />
-    );
-  }
-  return (
-    <img
-      src={url}
-      alt=""
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-      className="h-12 w-12 shrink-0 self-center rounded-sm object-cover"
-    />
-  );
-}
 
 /**
  * variant "score" (default): the multiple leads — Leading / Best Performing.

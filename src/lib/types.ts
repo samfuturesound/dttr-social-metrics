@@ -148,3 +148,60 @@ export interface BrandPlatform {
   completion_available: number;
   last_post: string | null;
 }
+
+/** Minimal shape a post row needs to render — satisfied by both the internal
+ * PostDetail and the public SharePost (which carries no assist fields). */
+export interface RowPost {
+  external_id: string;
+  network: string;
+  content_type: string;
+  caption: string | null;
+  permalink: string | null;
+  thumbnail_url: string | null;
+  published_at: string;
+  age_days: number;
+  views: number;
+  median_views: number;
+  views_multiple: number;
+  is_assisted?: boolean;
+  assisted_from?: string | null;
+}
+
+/** mx_share_posts row — deliberately excludes assist flags, spend, owner and
+ * notes. The public route must never render those. */
+export interface SharePost extends RowPost {
+  brand_name: string;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  engagement_rate: number | null;
+  engagement_multiple: number | null;
+  completion_pct: number | null;
+  skip_rate: number | null;
+}
+
+/** mx_share_summary row — one per network + content type. */
+export interface ShareSummary {
+  brand_name: string;
+  network: string;
+  content_type: string;
+  posts: number;
+  views: number;
+  median_views: number | null;
+  median_engagement_rate: number | null;
+  median_completion_pct: number | null;
+  last_post: string | null;
+}
+
+/** mx_list_shares row. */
+export interface ShareLink {
+  id: number;
+  brand_id: number;
+  brand_name: string;
+  token: string;
+  label: string | null;
+  created_at: string;
+  expires_on: string | null;
+  revoked: boolean;
+}

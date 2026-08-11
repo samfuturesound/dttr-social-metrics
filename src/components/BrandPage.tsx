@@ -1,157 +1,20 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchBrandPlatform, fetchBrandSummary, fetchPostDetail } from "../lib/data";
+import { useEffect, useMemo, useState } from "react";
+import {
+  fetchBrandPlatform,
+  fetchBrandSummary,
+  fetchPostDetail,
+} from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { navigate } from "../lib/router";
 import type { BrandPlatform, BrandSummary, PostDetail } from "../lib/types";
 import { Section, Empty } from "./Section";
-import { Thumb } from "./PostRow";
+import { BrandRow, PlatformTable, Stat, platformLabel } from "./BrandRow";
+import EngagementExplainer from "./EngagementExplainer";
+import ShareManager from "./ShareManager";
 
 const QUARTER_DAYS = 92;
 const PAGE_SIZE = 10;
 const PAGE_MAX = 50;
-
-const NETWORK_LABEL: Record<string, string> = {
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  facebook: "Facebook",
-};
-
-/**
- * One row on a brand page. Every row is the same brand, so the caption is
- * the primary line. The design constraint for these pages: figures are only
- * ever shown next to the account's OWN median — never against a fixed
- * threshold or a roster-wide scale.
- */
-function BrandRow(props: {
-  post: PostDetail;
-  headline?: string;
-  right?: string;
-  meta: string;
-}) {
-  const { post } = props;
-  const title =
-    post.caption?.trim() ||
-    `${NETWORK_LABEL[post.network] ?? post.network} ${post.content_type}`;
-  return (
-    <li className="flex w-full items-center gap-4 py-4">
-      <Thumb url={post.thumbnail_url} />
-      {props.headline !== undefined && (
-        <span
-          className={
-            post.is_assisted
-              ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
-              : "w-18 shrink-0 text-right font-serif text-[1.75rem] leading-none text-accent"
-          }
-        >
-          {props.headline}
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="block truncate text-sm">{title}</span>
-          <span className="text-xs text-dim">
-            {NETWORK_LABEL[post.network] ?? post.network}
-          </span>
-          {post.is_assisted && post.assisted_from && (
-            <span className="text-xs italic text-dim">
-              assisted from {shortDate(post.assisted_from)}
-            </span>
-          )}
-        </span>
-        <span className="mt-1 block text-[13px] text-dim">{props.meta}</span>
-      </span>
-      {props.right !== undefined && (
-        <span className="shrink-0 self-center font-serif text-base text-dim">
-          {props.right}
-        </span>
-      )}
-      {post.permalink && (
-        <a
-          href={post.permalink}
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 self-center p-1 text-dim/70 hover:text-ink"
-          title="Open post"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
-        </a>
-      )}
-    </li>
-  );
-}
-
-function Stat(props: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="font-serif text-2xl leading-tight">{props.value}</div>
-      <div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
-        {props.label}
-      </div>
-    </div>
-  );
-}
-
-function EngagementExplainer() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <button
-        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
-        onClick={() => setOpen((o) => !o)}
-      >
-        What does the engagement score mean?
-      </button>
-      {open && (
-        <div className="mt-3 max-w-prose space-y-2 text-sm leading-relaxed text-dim">
-          <p>
-            The engagement score weights actions by what they're worth. A like
-            costs nothing. A comment takes effort. A save means someone
-            intends to come back. A share puts that person's own audience
-            behind the post. A follow is the strongest thing a single post can
-            do.
-          </p>
-          <p>
-            So they're weighted: like 1, comment 3, save 5, share 5, follow
-            10. The total is divided by views, giving a score per 100 views —
-            that way a small account with a devoted audience isn't beaten by a
-            big account nobody responds to.
-          </p>
-          <p>
-            It's a score, not a percentage.{" "}
-            <span className="font-serif text-ink">9.2</span> doesn't mean 9.2%
-            of viewers engaged; it means the weighted actions came to 9.2 per
-            100 views. Compare it to the account's own median, shown
-            alongside.
-          </p>
-          <p>
-            Watch-through is separate: average watch time as a share of the
-            video's length. Only video posts carry duration, so it's blank
-            elsewhere.
-          </p>
-          <p>
-            Platforms report different things. TikTok gives views, likes,
-            comments and shares. Instagram adds saves and follows, and reels
-            also give watch time. That means engagement scores can't be
-            compared between platforms — a TikTok post has fewer ways to
-            score. Every comparison here is within the same platform and
-            format for that account, so a reel is measured against that
-            account's other reels, never against its TikToks.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function platformLabel(network: string, contentType: string): string {
-  const net = NETWORK_LABEL[network] ?? network;
-  return network === "tiktok" ? net : `${net} ${contentType}`;
-}
 
 export default function BrandPage({ brand }: { brand: string }) {
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
@@ -291,50 +154,15 @@ export default function BrandPage({ brand }: { brand: string }) {
               )}
             </div>
 
-            {platforms.length > 0 && (
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full max-w-2xl text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
-                      <th className="py-2 pr-4 font-medium"></th>
-                      <th className="py-2 pr-4 font-medium">Posts</th>
-                      <th className="py-2 pr-4 font-medium">Median views</th>
-                      <th className="py-2 pr-4 font-medium">Median engagement</th>
-                      <th className="py-2 font-medium">Median completion</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {platforms.map((pl) => (
-                      <tr key={`${pl.network}-${pl.content_type}`}>
-                        <td className="py-2.5 pr-4">
-                          {platformLabel(pl.network, pl.content_type)}
-                        </td>
-                        <td className="py-2.5 pr-4 font-serif">{pl.posts}</td>
-                        <td className="py-2.5 pr-4 font-serif">
-                          {pl.median_views !== null
-                            ? compact(pl.median_views)
-                            : ""}
-                        </td>
-                        <td className="py-2.5 pr-4 font-serif">
-                          {pl.median_engagement_rate !== null
-                            ? pl.median_engagement_rate.toFixed(1)
-                            : ""}
-                        </td>
-                        <td className="py-2.5 font-serif">
-                          {pl.median_completion_pct !== null
-                            ? `${Math.round(pl.median_completion_pct)}%`
-                            : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <PlatformTable rows={platforms} compact={compact} />
             <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
               "All time" here means since measurements began — first post is
               stated above — not the account's whole life.
             </p>
+            <ShareManager
+              brandId={summary.brand_id}
+              brandName={summary.brand_name}
+            />
           </>
         )}
       </header>

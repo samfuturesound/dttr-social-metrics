@@ -29,3 +29,9 @@ export function brandFromPath(path: string): string | null {
   const m = path.match(/^\/brand\/(.+)$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
+
+/** Returns the token when the path is a public share page, else null. */
+export function shareFromPath(path: string): string | null {
+  const m = path.match(/^\/share\/([A-Za-z0-9_-]+)$/);
+  return m ? m[1] : null;
+}

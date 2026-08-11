@@ -52,6 +52,20 @@ threshold or scale against roster-wide numbers — every figure sits next to the
 account's own median, because the roster spans two orders of magnitude in
 reach.
 
+## Public share links
+
+`/share/[token]` renders one brand's figures with no sign-in — the route sits
+ahead of the auth gate in [App.tsx](src/App.tsx), and `mx_share_summary` /
+`mx_share_posts` are granted to `anon` and scoped to the token's brand. An
+unknown, revoked or expired token returns zero rows, which the page shows as
+"This link is no longer active".
+
+The share view deliberately omits paid support, spend, owner and notes (the
+functions don't return them), and carries no nav or links back into the
+dashboard — it's a dead end by design. Create, label, expire and revoke links
+from the Share control on the internal brand page; revocation takes effect on
+the next request.
+
 ## Data notes
 
 - Flagged posts come from `mx_flagged_interim` (median-based, works on

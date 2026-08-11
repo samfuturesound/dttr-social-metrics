@@ -6,6 +6,9 @@ import type {
   Brand,
   BrandPlatform,
   BrandSummary,
+  ShareLink,
+  SharePost,
+  ShareSummary,
   FlaggedPost,
   Intervention,
   Period,
@@ -342,4 +345,78 @@ export async function fetchBrandPlatform(
     median_completion_pct: num(r.median_completion_pct),
     completion_available: num(r.completion_available) ?? 0,
   }));
+}
+
+
+/* ---------- Public share links ----------
+ * mx_share_summary / mx_share_posts are granted to anon and take the token
+ * as their only argument, so these work with no session. An unknown, revoked
+ * or expired token returns zero rows rather than an error.
+ */
+
+export async function fetchShareSummary(
+  token: string,
+): Promise<ShareSummary[]> {
+  const { data, error } = await supabase.rpc("mx_share_summary", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...(r as unknown as ShareSummary),
+    posts: num(r.posts) ?? 0,
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+  }));
+}
+
+export async function fetchSharePosts(token: string): Promise<SharePost[]> {
+  const { data, error } = await supabase.rpc("mx_share_posts", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...(r as unknown as SharePost),
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views) ?? 0,
+    views_multiple: num(r.views_multiple) ?? 0,
+    age_days: num(r.age_days) ?? 0,
+    likes: num(r.likes),
+    comments: num(r.comments),
+    shares: num(r.shares),
+    saves: num(r.saves),
+    engagement_rate: num(r.engagement_rate),
+    engagement_multiple: num(r.engagement_multiple),
+    completion_pct: num(r.completion_pct),
+    skip_rate: num(r.skip_rate),
+  }));
+}
+
+/* ---------- Share management (internal only) ---------- */
+
+export async function listShares(): Promise<ShareLink[]> {
+  if (MOCK) return [];
+  const { data, error } = await supabase.rpc("mx_list_shares");
+  fail(error);
+  return data ?? [];
+}
+
+export async function createShare(args: {
+  brandId: number;
+  label: string | null;
+  expiresOn: string | null;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("mx_create_share", {
+    p_brand_id: args.brandId,
+    p_label: args.label,
+    p_expires_on: args.expiresOn,
+  });
+  fail(error);
+  return data as string;
+}
+
+export async function revokeShare(id: number): Promise<void> {
+  const { error } = await supabase.rpc("mx_revoke_share", { p_id: id });
+  fail(error);
 }
