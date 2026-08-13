@@ -96,6 +96,26 @@ figures. The share functions return no such columns either.
 Create, label, expire and revoke links from the Share control on the internal
 brand or label page; revocation takes effect on the next request.
 
+## AI Summarise
+
+`/ask` (internal only — it sits after the auth gate and no share route can
+reach it). A brand + period selector, a question box, and prose back.
+
+The `mx-ai-summarise` edge function
+([supabase/functions/mx-ai-summarise](supabase/functions/mx-ai-summarise/index.ts))
+loads `mx_ai_context(brand, days)`, sends it to Claude Sonnet with the
+question, and logs the exchange via `mx_log_ai_query`. Both RPCs have had
+EXECUTE **revoked from PUBLIC** — they shipped reachable by any authenticated
+user of the shared project, which would have exposed the whole roster through
+PostgREST. The function is now their only caller, using the service-role key
+after checking the caller is the internal service account.
+
+The context payload is sent as a cached system block, so repeat questions on
+the same brand and period re-read it at cache rates. Payload sizes: one brand
+≈ 8k tokens, all brands over 12 months ≈ 61k.
+
+Requires the `ANTHROPIC_API_KEY` secret (shared with the vision function).
+
 ## Data notes
 
 - Flagged posts come from `mx_flagged_interim` (median-based, works on

@@ -283,3 +283,20 @@ export interface BrandSkipRate {
   reels_counted: number;
   median_skip_rate: number | null;
 }
+
+/** mx_ai_queries row — the question log shown on /ask. */
+export interface AiQuery {
+  id: number;
+  asked_at: string;
+  question: string;
+  brand_filter: string | null;
+  error: string | null;
+}
+
+export interface AiAnswer {
+  answer: string;
+  posts: number;
+  tokens_in?: number;
+  tokens_out?: number;
+  truncated?: boolean;
+}

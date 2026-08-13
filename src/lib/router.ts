@@ -53,3 +53,8 @@ export function labelShareFromPath(path: string): string | null {
   const m = path.match(/^\/share\/label\/([A-Za-z0-9_-]+)$/);
   return m ? m[1] : null;
 }
+
+/** True when the path is the internal AI page. */
+export function isAskPath(path: string): boolean {
+  return path === "/ask";
+}

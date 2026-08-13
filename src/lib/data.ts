@@ -3,6 +3,8 @@ import { num } from "./format";
 import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./mock";
 import type {
   AccountScore,
+  AiAnswer,
+  AiQuery,
   Brand,
   BrandSkipRate,
   SkipRoster,
@@ -704,4 +706,44 @@ export async function fetchBrandSkipRates(
     reels_counted: num(r.reels_counted) ?? 0,
     median_skip_rate: num(r.median_skip_rate),
   }));
+}
+
+
+/* ---------- AI summarise (internal only) ----------
+ * mx_ai_context and mx_log_ai_query have EXECUTE revoked from PUBLIC — the
+ * mx-ai-summarise edge function is their only caller, using the service-role
+ * key after checking the caller is the internal account.
+ */
+
+export async function askAI(args: {
+  question: string;
+  brand: string | null;
+  days: number;
+}): Promise<AiAnswer> {
+  const { data, error } = await supabase.functions.invoke("mx-ai-summarise", {
+    body: { question: args.question, brand: args.brand, days: args.days },
+  });
+  // supabase-js surfaces non-2xx as FunctionsHttpError with the body hidden,
+  // so read the response for the server's own message where we can.
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      const body = await ctx.json().catch(() => null);
+      if (body?.error) throw new Error(body.error);
+    }
+    throw new Error(error.message ?? "The question could not be answered.");
+  }
+  if (data?.error) throw new Error(data.error);
+  return data as AiAnswer;
+}
+
+export async function fetchAiQueries(limit = 8): Promise<AiQuery[]> {
+  if (MOCK) return [];
+  const { data, error } = await supabase
+    .from("mx_ai_queries")
+    .select("*")
+    .order("asked_at", { ascending: false })
+    .limit(limit);
+  fail(error);
+  return data ?? [];
 }

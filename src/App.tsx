@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, MOCK } from "./lib/supabase";
 import {
   brandFromPath,
+  isAskPath,
   labelFromPath,
   labelShareFromPath,
   shareFromPath,
@@ -11,6 +12,7 @@ import {
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import BrandPage from "./components/BrandPage";
+import AskPage from "./components/AskPage";
 import LabelPage from "./components/LabelPage";
 import SharePage from "./components/SharePage";
 import LabelSharePage from "./components/LabelSharePage";
@@ -49,6 +51,9 @@ export default function App() {
 
   if (!ready) return null;
   if (!MOCK && !session) return <Login />;
+
+  // Internal only — never reachable from a /share route.
+  if (isAskPath(path)) return <AskPage />;
 
   const labelSlug = labelFromPath(path);
   if (labelSlug) return <LabelPage key={labelSlug} slug={labelSlug} />;

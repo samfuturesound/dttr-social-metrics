@@ -144,6 +144,16 @@ export default function Dashboard() {
             {MOCK && <span className="ml-3 text-accent">mock data</span>}
           </p>
           <nav className="flex gap-5 text-[13px] text-dim">
+            <a
+              href="/ask"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/ask");
+              }}
+              className="hover:text-ink"
+            >
+              AI Summarise
+            </a>
             <button className="hover:text-ink" onClick={() => setAdminOpen(true)}>
               Brands
             </button>
