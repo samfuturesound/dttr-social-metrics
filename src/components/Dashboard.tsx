@@ -11,6 +11,8 @@ import {
   fetchBest,
   fetchBrands,
   fetchLabels,
+  fetchBrandSkipRates,
+  fetchSkipRoster,
   fetchInterventions,
   fetchLeading,
   fetchNotes,
@@ -24,6 +26,7 @@ import type {
   AccountScore,
   Brand,
   Label,
+  SkipRoster,
   FlaggedPost,
   Intervention,
   Period,
@@ -34,6 +37,7 @@ import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
+import SkipRateExplainer from "./SkipRateExplainer";
 import { brandPath, labelPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
@@ -51,6 +55,10 @@ export default function Dashboard() {
   const [streaming, setStreaming] = useState<StreamingCapture[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
+  const [skipRoster, setSkipRoster] = useState<SkipRoster | null>(null);
+  const [skipByBrand, setSkipByBrand] = useState<Map<string, number | null>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -67,6 +75,14 @@ export default function Dashboard() {
         fetchBrands(),
         fetchLabels(),
       ]);
+      const [roster, skips] = await Promise.all([
+        fetchSkipRoster(),
+        fetchBrandSkipRates(),
+      ]);
+      setSkipRoster(roster);
+      setSkipByBrand(
+        new Map(skips.map((r) => [r.brand_name, r.median_skip_rate])),
+      );
       setLeading(fl);
       setRecent(re);
       setBest(be);
@@ -112,7 +128,7 @@ export default function Dashboard() {
     [best],
   );
 
-  const rowProps = { notes, interventions, streaming, openId, setOpenId };
+  const rowProps = { notes, interventions, streaming, openId, setOpenId, skipByBrand };
   const loaded = leading !== null;
   const windowLabel = period
     ? `${shortDate(period.period_start)} \u2013 ${shortDate(period.period_end)}`
@@ -165,7 +181,10 @@ export default function Dashboard() {
             ))}
           </nav>
         )}
-        <ScoreExplainer />
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
+          <ScoreExplainer />
+          <SkipRateExplainer roster={skipRoster} />
+        </div>
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
@@ -394,6 +413,7 @@ function PostList(props: {
   setOpenId: (id: string | null) => void;
   reload: () => Promise<void>;
   variant?: "score" | "feed" | "reach";
+  skipByBrand?: Map<string, number | null>;
 }) {
   return (
     <ul className="divide-y divide-line">
@@ -406,6 +426,7 @@ function PostList(props: {
             key={p.external_id}
             post={p}
             variant={props.variant}
+            medianSkip={props.skipByBrand?.get(p.brand_name) ?? null}
             notes={props.notes.filter((n) => n.external_id === p.external_id)}
             interventions={props.interventions.filter(
               (i) => i.external_id === p.external_id,

@@ -1,16 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchBrandPlatformRanks,
+  fetchBrandSkipRates,
   fetchBrandSummary,
   fetchPostDetail,
+  fetchSkipRoster,
 } from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { labelPath, navigate } from "../lib/router";
-import type { BrandPlatformRanks, BrandSummary, PostDetail } from "../lib/types";
+import type {
+  BrandPlatformRanks,
+  BrandSummary,
+  PostDetail,
+  SkipRoster,
+} from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
+import SkipRateExplainer from "./SkipRateExplainer";
 import ShareManager from "./ShareManager";
 
 const QUARTER_DAYS = 92;
@@ -21,6 +29,10 @@ export default function BrandPage({ brand }: { brand: string }) {
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
   const [summary, setSummary] = useState<BrandSummary | null>(null);
   const [platforms, setPlatforms] = useState<BrandPlatformRanks[]>([]);
+  const [skipRoster, setSkipRoster] = useState<SkipRoster | null>(null);
+  const [skipByKey, setSkipByKey] = useState<Map<string, number | null>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -33,11 +45,22 @@ export default function BrandPage({ brand }: { brand: string }) {
       fetchPostDetail(brand),
       fetchBrandSummary(brand),
       fetchBrandPlatformRanks(brand),
+      fetchBrandSkipRates(brand),
+      fetchSkipRoster(),
     ])
-      .then(([p, s, pl]) => {
+      .then(([p, s, pl, skips, roster]) => {
         setPosts(p);
         setSummary(s);
         setPlatforms(pl);
+        setSkipRoster(roster);
+        setSkipByKey(
+          new Map(
+            skips.map((r) => [
+              `${r.brand_name}|${r.network}|${r.content_type}`,
+              r.median_skip_rate,
+            ]),
+          ),
+        );
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [brand]);
@@ -160,11 +183,12 @@ export default function BrandPage({ brand }: { brand: string }) {
               )}
             </div>
 
-            <RankedPlatformTable rows={platforms} />
+            <RankedPlatformTable rows={platforms} skipByKey={skipByKey} />
             <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
               "All time" here means since measurements began — first post is
               stated above — not the account's whole life.
             </p>
+            <SkipRateExplainer roster={skipRoster} className="mt-4" />
             <ShareManager
               brandId={summary.brand_id}
               brandName={summary.brand_name}

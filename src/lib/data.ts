@@ -4,6 +4,8 @@ import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./m
 import type {
   AccountScore,
   Brand,
+  BrandSkipRate,
+  SkipRoster,
   Label,
   LabelShareLink,
   LabelShareSummary,
@@ -658,4 +660,48 @@ export async function fetchLabelShareName(
   });
   fail(error);
   return (data as string) ?? null;
+}
+
+
+/* ---------- Skip rate benchmarks (internal only) ----------
+ * Never fetched by the public share pages — they don't render skip rate, and
+ * the roster figures are comparative information an artist shouldn't see.
+ */
+
+export async function fetchSkipRoster(): Promise<SkipRoster | null> {
+  if (MOCK) {
+    return {
+      reels_counted: 143, roster_median: 68.6,
+      best_skip_rate: 39.7, worst_skip_rate: 91.3,
+    };
+  }
+  const { data, error } = await supabase
+    .from("mx_skip_roster")
+    .select("*")
+    .limit(1);
+  fail(error);
+  const r = data?.[0];
+  if (!r) return null;
+  return {
+    reels_counted: num(r.reels_counted) ?? 0,
+    roster_median: num(r.roster_median) ?? 0,
+    best_skip_rate: num(r.best_skip_rate) ?? 0,
+    worst_skip_rate: num(r.worst_skip_rate) ?? 0,
+  };
+}
+
+/** Median skip rate per brand — optionally narrowed to one brand. */
+export async function fetchBrandSkipRates(
+  brand?: string,
+): Promise<BrandSkipRate[]> {
+  if (MOCK) return [];
+  let q = supabase.from("mx_brand_skip_rates").select("*");
+  if (brand) q = q.eq("brand_name", brand);
+  const { data, error } = await q;
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    reels_counted: num(r.reels_counted) ?? 0,
+    median_skip_rate: num(r.median_skip_rate),
+  }));
 }

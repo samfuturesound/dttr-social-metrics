@@ -8,6 +8,7 @@ import type {
 import PostDetail from "./PostDetail";
 import { brandPath, navigate } from "../lib/router";
 import { Thumb } from "./BrandRow";
+import { SkipMarker } from "./SkipRateExplainer";
 
 const NETWORK_LABEL: Record<string, string> = {
   instagram: "Instagram",
@@ -30,6 +31,8 @@ export default function PostRow(props: {
   onToggle: () => void;
   reload: () => Promise<void>;
   variant?: "score" | "feed" | "reach";
+  /** This account's own median skip rate, for the reel comparison. */
+  medianSkip?: number | null;
 }) {
   const { post, open } = props;
   const feed = props.variant === "feed";
@@ -103,8 +106,18 @@ export default function PostRow(props: {
               (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
                 <span className="text-ink">
                   {" · "}
-                  {post.skip_rate !== null &&
-                    `skip ${Math.round(post.skip_rate)}%`}
+                  {post.skip_rate !== null && (
+                    <>
+                      skip {Math.round(post.skip_rate)}%
+                      {props.medianSkip != null && (
+                        <span className="text-dim">
+                          {" "}
+                          vs {Math.round(props.medianSkip)}% median
+                        </span>
+                      )}
+                      <SkipMarker skipRate={post.skip_rate} />
+                    </>
+                  )}
                   {post.skip_rate !== null &&
                     post.avg_watch_seconds !== null &&
                     " · "}

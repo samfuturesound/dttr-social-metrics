@@ -1,6 +1,7 @@
 import { compact, ordinal } from "../lib/format";
 import type { BrandPlatformRanks, BrandType } from "../lib/types";
 import { platformLabel } from "./BrandRow";
+import { SkipMarker } from "./SkipRateExplainer";
 
 /**
  * Platform medians with roster position — INTERNAL BRAND PAGE ONLY.
@@ -58,8 +59,12 @@ function RankLines(props: {
 
 export default function RankedPlatformTable({
   rows,
+  skipByKey,
 }: {
   rows: BrandPlatformRanks[];
+  /** brand|network|content_type -> median skip rate. Reels only; the
+   *  ranks view carries no skip figures of its own. */
+  skipByKey?: Map<string, number | null>;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -72,7 +77,8 @@ export default function RankedPlatformTable({
               <th className="py-2 pr-4 font-medium">Posts</th>
               <th className="py-2 pr-4 font-medium">Median views</th>
               <th className="py-2 pr-4 font-medium">Median engagement</th>
-              <th className="py-2 font-medium">Median completion</th>
+              <th className="py-2 pr-4 font-medium">Median completion</th>
+              <th className="py-2 font-medium">Median skip</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -117,7 +123,7 @@ export default function RankedPlatformTable({
 
                 {/* Completion exists on Instagram reels only — blank elsewhere,
                     including its ranks. */}
-                <td className="py-3">
+                <td className="py-3 pr-4">
                   <span className="font-serif">
                     {r.median_completion_pct !== null
                       ? `${Math.round(r.median_completion_pct)}%`
@@ -132,6 +138,22 @@ export default function RankedPlatformTable({
                       brandType={r.brand_type}
                     />
                   )}
+                </td>
+
+                {/* Skip rate is Instagram reels only, and has no ranks. */}
+                <td className="py-3">
+                  {(() => {
+                    const skip = skipByKey?.get(
+                      `${r.brand_name}|${r.network}|${r.content_type}`,
+                    );
+                    if (skip == null) return null;
+                    return (
+                      <span className="whitespace-nowrap">
+                        <span className="font-serif">{Math.round(skip)}%</span>
+                        <SkipMarker skipRate={skip} />
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}

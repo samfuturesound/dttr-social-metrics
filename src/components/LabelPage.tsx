@@ -1,16 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  fetchBrandSkipRates,
   fetchLabelPlatformRanks,
   fetchLabelPosts,
   fetchLabels,
+  fetchSkipRoster,
 } from "../lib/data";
 import { age, compact, multiple, shortDate } from "../lib/format";
 import { brandPath, navigate } from "../lib/router";
-import type { BrandPlatformRanks, Label, PostDetail } from "../lib/types";
+import type {
+  BrandPlatformRanks,
+  Label,
+  PostDetail,
+  SkipRoster,
+} from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
+import SkipRateExplainer from "./SkipRateExplainer";
 import LabelShareManager from "./LabelShareManager";
 
 const QUARTER_DAYS = 92;
@@ -23,6 +31,10 @@ export default function LabelPage({ slug }: { slug: string }) {
   const [notFound, setNotFound] = useState(false);
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
   const [platforms, setPlatforms] = useState<BrandPlatformRanks[]>([]);
+  const [skipRoster, setSkipRoster] = useState<SkipRoster | null>(null);
+  const [skipByKey, setSkipByKey] = useState<Map<string, number | null>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -39,12 +51,23 @@ export default function LabelPage({ slug }: { slug: string }) {
           return;
         }
         setLabel(found);
-        const [p, pr] = await Promise.all([
+        const [p, pr, skips, roster] = await Promise.all([
           fetchLabelPosts(found.name),
           fetchLabelPlatformRanks(found.name),
+          fetchBrandSkipRates(),
+          fetchSkipRoster(),
         ]);
         setPosts(p);
         setPlatforms(pr);
+        setSkipRoster(roster);
+        setSkipByKey(
+          new Map(
+            skips.map((r) => [
+              `${r.brand_name}|${r.network}|${r.content_type}`,
+              r.median_skip_rate,
+            ]),
+          ),
+        );
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [slug]);
@@ -169,6 +192,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                 <Stat value={compact(totalViews)} label="Views" />
               )}
             </div>
+            <SkipRateExplainer roster={skipRoster} className="mt-4" />
             <LabelShareManager labelName={label.name} />
           </>
         )}
@@ -220,7 +244,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                     >
                       {brand}
                     </a>
-                    <RankedPlatformTable rows={rows} />
+                    <RankedPlatformTable rows={rows} skipByKey={skipByKey} />
                   </div>
                 ))}
               </div>

@@ -266,3 +266,20 @@ export interface LabelShareSummary {
   median_completion_pct: number | null;
   last_post: string | null;
 }
+
+/** mx_skip_roster — one row, roster-wide skip benchmarks. Internal only. */
+export interface SkipRoster {
+  reels_counted: number;
+  roster_median: number;
+  best_skip_rate: number;
+  worst_skip_rate: number;
+}
+
+/** mx_brand_skip_rates — per brand + network + format median skip rate. */
+export interface BrandSkipRate {
+  brand_name: string;
+  network: string;
+  content_type: string;
+  reels_counted: number;
+  median_skip_rate: number | null;
+}
