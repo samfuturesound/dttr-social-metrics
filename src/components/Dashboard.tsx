@@ -37,7 +37,7 @@ import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
-import SkipRateExplainer from "./SkipRateExplainer";
+import { SkipRatePanel } from "./SkipRateExplainer";
 import { brandPath, labelPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [explainer, setExplainer] = useState<null | "score" | "skip">(null);
 
   const load = useCallback(async () => {
     try {
@@ -191,10 +192,46 @@ export default function Dashboard() {
             ))}
           </nav>
         )}
-        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
-          <ScoreExplainer />
-          <SkipRateExplainer roster={skipRoster} />
+        {/* Grouped as one labelled set, tight under the Labels row above so
+            the two read as a block rather than loose links. */}
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+            Explainers
+          </span>
+          <button
+            className={`text-[13px] underline underline-offset-2 hover:text-ink ${
+              explainer === "score" ? "text-ink" : "text-dim"
+            }`}
+            onClick={() =>
+              setExplainer((e) => (e === "score" ? null : "score"))
+            }
+            aria-expanded={explainer === "score"}
+          >
+            What does <span className="font-serif">3×</span> mean?
+          </button>
+          <span aria-hidden className="text-[13px] text-dim/50">
+            ·
+          </span>
+          <button
+            className={`text-[13px] underline underline-offset-2 hover:text-ink ${
+              explainer === "skip" ? "text-ink" : "text-dim"
+            }`}
+            onClick={() => setExplainer((e) => (e === "skip" ? null : "skip"))}
+            aria-expanded={explainer === "skip"}
+          >
+            What is skip rate?
+          </button>
         </div>
+        {explainer === "score" && (
+          <div className="mt-3">
+            <ScorePanel />
+          </div>
+        )}
+        {explainer === "skip" && (
+          <div className="mt-3">
+            <SkipRatePanel roster={skipRoster} />
+          </div>
+        )}
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
@@ -349,18 +386,9 @@ export default function Dashboard() {
   );
 }
 
-function ScoreExplainer() {
-  const [open, setOpen] = useState(false);
+function ScorePanel() {
   return (
-    <div className="mt-2">
-      <button
-        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
-        onClick={() => setOpen((o) => !o)}
-      >
-        What does <span className="font-serif">3×</span> mean?
-      </button>
-      {open && (
-        <div className="mt-3 max-w-prose space-y-2 text-sm leading-relaxed text-dim">
+    <div className="max-w-prose space-y-2 text-sm leading-relaxed text-dim">
           <p>
             The multiple compares a post to what's normal for its own account.{" "}
             <span className="font-serif text-ink">3×</span> means three times
@@ -377,11 +405,9 @@ function ScoreExplainer() {
           </p>
           <p>
             Posts we've paid to boost are excluded from the comparison, and an
-            account needs at least ten posts of history before anything is
-            scored.
-          </p>
-        </div>
-      )}
+        account needs at least ten posts of history before anything is
+        scored.
+      </p>
     </div>
   );
 }
