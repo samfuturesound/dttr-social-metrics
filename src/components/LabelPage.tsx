@@ -201,10 +201,12 @@ export default function LabelPage({ slug }: { slug: string }) {
       {!notFound && posts !== null && label && label.brands > 0 && (
         <div className="space-y-12">
           {byBrand.length > 0 && (
-            <section>
-              <h2 className="border-b border-line pb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
-                Brands
-              </h2>
+            <Section
+              id={`label-${slug}-brands`}
+              title="Brands"
+              count={byBrand.length}
+              subtitle="Per-platform medians and roster position for each brand under this label."
+            >
               <div className="space-y-8 pt-4">
                 {byBrand.map(([brand, rows]) => (
                   <div key={brand}>
@@ -222,7 +224,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                   </div>
                 ))}
               </div>
-            </section>
+            </Section>
           )}
 
           <Section
