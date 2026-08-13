@@ -66,6 +66,36 @@ dashboard — it's a dead end by design. Create, label, expire and revoke links
 from the Share control on the internal brand page; revocation takes effect on
 the next request.
 
+## Labels
+
+Labels are many-to-many: `mx_brands.labels` is a text array and every post
+view carries the same `labels` column. Brands appear on the main dashboard
+regardless of label — labels slice the roster, they don't partition it.
+
+- Toggle from the Brands panel (a checkbox per label per brand, calling
+  `mx_set_brand_label`); create with `mx_add_label`.
+- `/label/[slug]` is the internal label view: each brand's per-platform
+  medians *with* roster ranks, then the usual post and engagement sections.
+- `/share/label/[token]` is the public equivalent — see below.
+
+## Public share links
+
+`/share/[token]` (one brand) and `/share/label/[token]` (a whole label) render
+with no sign-in. Both routes sit ahead of the auth gate in
+[App.tsx](src/App.tsx) and use anon-granted RPCs scoped to their token. An
+unknown, revoked or expired token returns zero rows, shown as "This link is no
+longer active".
+
+Share views omit paid support, spend, owner, notes **and roster ranks**, and
+carry no nav or links back into the dashboard. Each public page is a separate
+component from its internal counterpart rather than one behind a flag
+(`SharePage`/`BrandPage`, `LabelSharePage`/`LabelPage`,
+`PlatformTable`/`RankedPlatformTable`) so a stray prop can't leak internal
+figures. The share functions return no such columns either.
+
+Create, label, expire and revoke links from the Share control on the internal
+brand or label page; revocation takes effect on the next request.
+
 ## Data notes
 
 - Flagged posts come from `mx_flagged_interim` (median-based, works on

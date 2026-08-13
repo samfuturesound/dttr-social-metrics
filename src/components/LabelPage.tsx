@@ -1,25 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchBrandPlatformRanks,
-  fetchBrandSummary,
-  fetchPostDetail,
+  fetchLabelPlatformRanks,
+  fetchLabelPosts,
+  fetchLabels,
 } from "../lib/data";
-import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
-import { labelPath, navigate } from "../lib/router";
-import type { BrandPlatformRanks, BrandSummary, PostDetail } from "../lib/types";
+import { age, compact, multiple, shortDate } from "../lib/format";
+import { brandPath, navigate } from "../lib/router";
+import type { BrandPlatformRanks, Label, PostDetail } from "../lib/types";
 import { Section, Empty } from "./Section";
-import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
+import { BrandRow, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
-import ShareManager from "./ShareManager";
+import LabelShareManager from "./LabelShareManager";
 
 const QUARTER_DAYS = 92;
 const PAGE_SIZE = 10;
 const PAGE_MAX = 50;
 
-export default function BrandPage({ brand }: { brand: string }) {
+/** Internal label view — every brand carrying this label, with ranks. */
+export default function LabelPage({ slug }: { slug: string }) {
+  const [label, setLabel] = useState<Label | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [posts, setPosts] = useState<PostDetail[] | null>(null);
-  const [summary, setSummary] = useState<BrandSummary | null>(null);
   const [platforms, setPlatforms] = useState<BrandPlatformRanks[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
@@ -27,20 +29,35 @@ export default function BrandPage({ brand }: { brand: string }) {
   useEffect(() => {
     window.scrollTo(0, 0);
     setPosts(null);
-    setSummary(null);
     setLatestVisible(PAGE_SIZE);
-    Promise.all([
-      fetchPostDetail(brand),
-      fetchBrandSummary(brand),
-      fetchBrandPlatformRanks(brand),
-    ])
-      .then(([p, s, pl]) => {
+    fetchLabels()
+      .then(async (labels) => {
+        const found = labels.find((l) => l.slug === slug);
+        if (!found) {
+          setNotFound(true);
+          setPosts([]);
+          return;
+        }
+        setLabel(found);
+        const [p, pr] = await Promise.all([
+          fetchLabelPosts(found.name),
+          fetchLabelPlatformRanks(found.name),
+        ]);
         setPosts(p);
-        setSummary(s);
-        setPlatforms(pl);
+        setPlatforms(pr);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [brand]);
+  }, [slug]);
+
+  const byBrand = useMemo(() => {
+    const m = new Map<string, BrandPlatformRanks[]>();
+    for (const r of platforms) {
+      const arr = m.get(r.brand_name) ?? [];
+      arr.push(r);
+      m.set(r.brand_name, arr);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [platforms]);
 
   const recent = useMemo(
     () => (posts ?? []).filter((p) => p.age_days <= QUARTER_DAYS),
@@ -75,9 +92,6 @@ export default function BrandPage({ brand }: { brand: string }) {
         .slice(0, 10),
     [recent],
   );
-  // Engagement scores are NOT comparable across platforms (TikTok can only
-  // earn likes/comments/shares; Instagram adds saves and follows). Rank
-  // within platform+format only — never one mixed list.
   const topEngRateGroups = useMemo(() => {
     const groups = new Map<string, PostDetail[]>();
     for (const p of posts ?? []) {
@@ -100,25 +114,27 @@ export default function BrandPage({ brand }: { brand: string }) {
       })
       .sort((a, b) => b.total - a.total);
   }, [posts]);
-  const mostWatched = useMemo(
+  const reels = useMemo(
     () =>
-      (posts ?? [])
-        .filter(
-          (p) =>
-            p.network === "instagram" &&
-            p.content_type === "reels" &&
-            p.completion_pct !== null,
-        )
-        .sort((a, b) => (b.completion_pct ?? 0) - (a.completion_pct ?? 0))
-        .slice(0, 5),
+      (posts ?? []).filter(
+        (p) => p.network === "instagram" && p.content_type === "reels",
+      ),
     [posts],
   );
-  const reelsPlatform = platforms.find(
-    (p) => p.network === "instagram" && p.content_type === "reels",
+  const mostWatched = useMemo(
+    () =>
+      reels
+        .filter((p) => p.completion_pct !== null)
+        .sort((a, b) => (b.completion_pct ?? 0) - (a.completion_pct ?? 0))
+        .slice(0, 5),
+    [reels],
   );
 
-  const viewsMeta = (p: PostDetail) =>
-    `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`;
+  // On a label page every row is a different brand, so the brand leads the meta.
+  const meta = (p: PostDetail, tail: string) => `${p.brand_name} · ${tail}`;
+
+  const totalPosts = platforms.reduce((n, r) => n + r.posts, 0);
+  const totalViews = platforms.reduce((n, r) => n + r.views, 0);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
@@ -134,58 +150,87 @@ export default function BrandPage({ brand }: { brand: string }) {
           ← Board
         </a>
         <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-          {summary?.brand_type === "theme" ? "Theme account" : "Artist"}
+          Label
         </p>
-        <h1 className="mt-1 font-serif text-4xl tracking-tight">{brand}</h1>
-        {summary?.labels && summary.labels.length > 0 && (
-          <div className="mt-3">
-            <LabelTags labels={summary.labels} />
-          </div>
-        )}
+        <h1 className="mt-1 font-serif text-4xl tracking-tight">
+          {label?.name ?? slug}
+        </h1>
 
-        {summary && (
+        {label && label.brands > 0 && (
           <>
             <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
-              <Stat value={String(summary.posts_all_time)} label="Posts" />
-              <Stat value={compact(summary.views_all_time)} label="Views" />
-              <Stat
-                value={`${summary.posts_3m} · ${compact(summary.views_3m)}`}
-                label="Posts · views, 3m"
-              />
-              {summary.first_post && summary.last_post && (
-                <Stat
-                  value={`${monthYear(summary.first_post)} – ${monthYear(summary.last_post)}`}
-                  label="First – last post"
-                />
+              <Stat value={String(label.brands)} label="Brands" />
+              <Stat value={String(label.artist_brands)} label="Artists" />
+              <Stat value={String(label.theme_brands)} label="Theme accounts" />
+              {totalPosts > 0 && (
+                <Stat value={String(totalPosts)} label="Posts" />
+              )}
+              {totalViews > 0 && (
+                <Stat value={compact(totalViews)} label="Views" />
               )}
             </div>
-
-            <RankedPlatformTable rows={platforms} />
-            <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
-              "All time" here means since measurements began — first post is
-              stated above — not the account's whole life.
-            </p>
-            <ShareManager
-              brandId={summary.brand_id}
-              brandName={summary.brand_name}
-            />
+            <LabelShareManager labelName={label.name} />
           </>
         )}
       </header>
 
       {error && <p className="mb-8 text-sm text-accent">{error}</p>}
-      {posts === null && !error && (
+
+      {notFound && (
+        <p className="py-24 text-center text-sm text-dim">
+          No label with that address.
+        </p>
+      )}
+
+      {!notFound && posts === null && !error && (
         <p className="py-24 text-center text-sm text-dim">Loading…</p>
       )}
 
-      {posts !== null && (
+      {/* A label with no brands yet is an ordinary state, not an error. */}
+      {!notFound && posts !== null && label && label.brands === 0 && (
+        <div className="py-24 text-center">
+          <p className="font-serif text-3xl">
+            No brands tagged with this label yet.
+          </p>
+          <p className="mt-3 text-sm text-dim">
+            Tag brands from the Brands panel and they'll appear here.
+          </p>
+        </div>
+      )}
+
+      {!notFound && posts !== null && label && label.brands > 0 && (
         <div className="space-y-12">
+          {byBrand.length > 0 && (
+            <section>
+              <h2 className="border-b border-line pb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+                Brands
+              </h2>
+              <div className="space-y-8 pt-4">
+                {byBrand.map(([brand, rows]) => (
+                  <div key={brand}>
+                    <a
+                      href={brandPath(brand)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate(brandPath(brand));
+                      }}
+                      className="font-serif text-xl hover:underline"
+                    >
+                      {brand}
+                    </a>
+                    <RankedPlatformTable rows={rows} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <Section
-            id="brand-leading"
+            id={`label-${slug}-leading`}
             title="Leading posts"
             timescale="last 3 months"
             count={leading.length}
-            subtitle="Posts beating this account's typical performance, most recent quarter."
+            subtitle="Posts beating their own account's typical performance, most recent quarter."
             defaultOpen
           >
             {leading.length === 0 ? (
@@ -197,7 +242,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                     key={p.external_id}
                     post={p}
                     headline={multiple(p.views_multiple)}
-                    meta={viewsMeta(p)}
+                    meta={meta(
+                      p,
+                      `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`,
+                    )}
                   />
                 ))}
               </ul>
@@ -205,26 +253,27 @@ export default function BrandPage({ brand }: { brand: string }) {
           </Section>
 
           <Section
-            id="brand-latest"
+            id={`label-${slug}-latest`}
             title="Latest posts"
             count={posts.length}
-            subtitle="Everything published, newest first."
+            subtitle="Everything published across this label's brands, newest first."
           >
             {posts.length === 0 ? (
               <Empty>Nothing here yet.</Empty>
             ) : (
               <>
                 <ul className="divide-y divide-line">
-                  {posts
-                    .slice(0, Math.min(latestVisible, PAGE_MAX))
-                    .map((p) => (
-                      <BrandRow
-                        key={p.external_id}
-                        post={p}
-                        right={multiple(p.views_multiple)}
-                        meta={`${age(p.age_days)} old · ${compact(p.views)} views vs ${compact(p.median_views)} median`}
-                      />
-                    ))}
+                  {posts.slice(0, Math.min(latestVisible, PAGE_MAX)).map((p) => (
+                    <BrandRow
+                      key={p.external_id}
+                      post={p}
+                      right={multiple(p.views_multiple)}
+                      meta={meta(
+                        p,
+                        `${age(p.age_days)} old · ${compact(p.views)} views vs ${compact(p.median_views)} median`,
+                      )}
+                    />
+                  ))}
                 </ul>
                 {latestVisible < Math.min(posts.length, PAGE_MAX) && (
                   <button
@@ -242,11 +291,11 @@ export default function BrandPage({ brand }: { brand: string }) {
           </Section>
 
           <Section
-            id="brand-most-viewed"
+            id={`label-${slug}-most-viewed`}
             title="Most viewed"
             timescale="all time"
             count={mostViewed.length}
-            subtitle="Raw reach — biggest posts regardless of how normal that is for this account."
+            subtitle="Raw reach — biggest posts regardless of how normal that is for the account."
           >
             <ul className="divide-y divide-line">
               {mostViewed.map((p) => (
@@ -254,18 +303,21 @@ export default function BrandPage({ brand }: { brand: string }) {
                   key={p.external_id}
                   post={p}
                   headline={compact(p.views)}
-                  meta={`${shortDate(p.published_at)} · ${multiple(p.views_multiple)} its baseline`}
+                  meta={meta(
+                    p,
+                    `${shortDate(p.published_at)} · ${multiple(p.views_multiple)} its baseline`,
+                  )}
                 />
               ))}
             </ul>
           </Section>
 
           <Section
-            id="brand-best"
+            id={`label-${slug}-best`}
             title="Best scoring"
             timescale="all time"
             count={bestScoring.length}
-            subtitle="Furthest above this account's own typical performance."
+            subtitle="Furthest above the account's own typical performance."
           >
             <ul className="divide-y divide-line">
               {bestScoring.map((p) => (
@@ -273,7 +325,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                   key={p.external_id}
                   post={p}
                   headline={multiple(p.views_multiple)}
-                  meta={viewsMeta(p)}
+                  meta={meta(
+                    p,
+                    `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`,
+                  )}
                 />
               ))}
             </ul>
@@ -287,14 +342,14 @@ export default function BrandPage({ brand }: { brand: string }) {
           </div>
 
           <Section
-            id="brand-best-eng"
+            id={`label-${slug}-best-eng`}
             title="Best engagement"
             timescale="last 3 months"
             count={bestEngagement.length}
-            subtitle="Posts where people did more than watch, relative to this account's norm."
+            subtitle="Posts where people did more than watch, relative to the account's norm."
           >
             {bestEngagement.length === 0 ? (
-              <Empty>Nothing above the account's norm this quarter.</Empty>
+              <Empty>Nothing above the norm this quarter.</Empty>
             ) : (
               <ul className="divide-y divide-line">
                 {bestEngagement.map((p) => (
@@ -302,7 +357,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                     key={p.external_id}
                     post={p}
                     headline={multiple(p.engagement_multiple)}
-                    meta={`${shortDate(p.published_at)} · ${platformLabel(p.network, p.content_type)} · ${p.engagement_rate?.toFixed(1)} per 100 views${p.median_engagement_rate !== null ? ` vs ${p.median_engagement_rate.toFixed(1)} median` : ""}`}
+                    meta={meta(
+                      p,
+                      `${platformLabel(p.network, p.content_type)} · ${p.engagement_rate?.toFixed(1)} per 100 views${p.median_engagement_rate !== null ? ` vs ${p.median_engagement_rate.toFixed(1)} median` : ""}`,
+                    )}
                   />
                 ))}
               </ul>
@@ -310,7 +368,7 @@ export default function BrandPage({ brand }: { brand: string }) {
           </Section>
 
           <Section
-            id="brand-top-eng"
+            id={`label-${slug}-top-eng`}
             title="Top engagement rate"
             timescale="all time, per platform"
             count={topEngRateGroups.reduce((n, g) => n + g.posts.length, 0)}
@@ -331,7 +389,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                           key={p.external_id}
                           post={p}
                           headline={p.engagement_rate?.toFixed(1) ?? "—"}
-                          meta={`${shortDate(p.published_at)} · ${compact(p.views)} views${p.median_engagement_rate !== null ? ` · median ${p.median_engagement_rate.toFixed(1)}` : ""}`}
+                          meta={meta(
+                            p,
+                            `${compact(p.views)} views${p.median_engagement_rate !== null ? ` · median ${p.median_engagement_rate.toFixed(1)}` : ""}`,
+                          )}
                         />
                       ))}
                     </ul>
@@ -342,14 +403,14 @@ export default function BrandPage({ brand }: { brand: string }) {
           </Section>
 
           <Section
-            id="brand-watched"
+            id={`label-${slug}-watched`}
             title="Most watched through"
             timescale="Instagram reels only"
             count={mostWatched.length}
-            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reelsPlatform ? ` From ${reelsPlatform.completion_available} of ${reelsPlatform.posts} reels.` : ""}`}
+            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reels.length > 0 ? ` From ${reels.filter((p) => p.completion_pct !== null).length} of ${reels.length} reels.` : ""}`}
           >
             {mostWatched.length === 0 ? (
-              <Empty>No video duration data for this account.</Empty>
+              <Empty>No video duration data for these accounts.</Empty>
             ) : (
               <ul className="divide-y divide-line">
                 {mostWatched.map((p) => (
@@ -357,7 +418,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                     key={p.external_id}
                     post={p}
                     headline={`${Math.round(p.completion_pct ?? 0)}%`}
-                    meta={`${shortDate(p.published_at)} · ${p.avg_watch_seconds?.toFixed(1) ?? "?"}s of ${p.duration_seconds ?? "?"}s${p.median_completion_pct !== null ? ` · account median ${Math.round(p.median_completion_pct)}%` : ""}`}
+                    meta={meta(
+                      p,
+                      `${p.avg_watch_seconds?.toFixed(1) ?? "?"}s of ${p.duration_seconds ?? "?"}s${p.median_completion_pct !== null ? ` · account median ${Math.round(p.median_completion_pct)}%` : ""}`,
+                    )}
                   />
                 ))}
               </ul>

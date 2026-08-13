@@ -27,6 +27,7 @@ export interface FlaggedPost {
 
 export interface Brand {
   id: string;
+  labels: string[];
   metricool_blog_id: number;
   name: string;
   brand_type: BrandType;
@@ -92,6 +93,7 @@ export interface Period {
 
 export interface AccountScore {
   brand_name: string;
+  labels: string[];
   brand_type: BrandType;
   owner: string | null;
   posts: number;
@@ -119,6 +121,7 @@ export interface PostDetail extends FlaggedPost {
 export interface BrandSummary {
   brand_id: number;
   brand_name: string;
+  labels: string[];
   brand_type: BrandType;
   owner: string | null;
   niche: string | null;
@@ -227,4 +230,39 @@ export interface BrandPlatformRanks extends BrandPlatform {
   total_completion_all: number;
   rank_completion_type: number | null;
   total_completion_type: number;
+}
+
+/** mx_labels row. Labels are many-to-many: a brand can carry several. */
+export interface Label {
+  label_id: number;
+  name: string;
+  slug: string;
+  brands: number;
+  active_brands: number;
+  artist_brands: number;
+  theme_brands: number;
+}
+
+/** mx_list_label_shares row. */
+export interface LabelShareLink {
+  id: number;
+  label: string;
+  token: string;
+  note: string | null;
+  created_at: string;
+  expires_on: string | null;
+  revoked: boolean;
+}
+
+/** mx_label_share_summary row — per brand per platform, no ranks. */
+export interface LabelShareSummary {
+  brand_name: string;
+  network: string;
+  content_type: string;
+  posts: number;
+  views: number;
+  median_views: number | null;
+  median_engagement_rate: number | null;
+  median_completion_pct: number | null;
+  last_post: string | null;
 }

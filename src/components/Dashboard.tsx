@@ -10,6 +10,7 @@ import {
   fetchAccountScores,
   fetchBest,
   fetchBrands,
+  fetchLabels,
   fetchInterventions,
   fetchLeading,
   fetchNotes,
@@ -22,6 +23,7 @@ import { compact, shortDate, todayLabel } from "../lib/format";
 import type {
   AccountScore,
   Brand,
+  Label,
   FlaggedPost,
   Intervention,
   Period,
@@ -31,7 +33,8 @@ import type {
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 import { Section, Empty } from "./Section";
-import { brandPath, navigate } from "../lib/router";
+import { LabelTags } from "./BrandRow";
+import { brandPath, labelPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
 const PAGE_MAX = 50;
@@ -47,13 +50,14 @@ export default function Dashboard() {
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [streaming, setStreaming] = useState<StreamingCapture[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [fl, re, be, tv, sc, pd, allBrands] = await Promise.all([
+      const [fl, re, be, tv, sc, pd, allBrands, allLabels] = await Promise.all([
         fetchLeading(),
         fetchRecent(),
         fetchBest(),
@@ -61,6 +65,7 @@ export default function Dashboard() {
         fetchAccountScores(),
         fetchPeriod(),
         fetchBrands(),
+        fetchLabels(),
       ]);
       setLeading(fl);
       setRecent(re);
@@ -69,6 +74,7 @@ export default function Dashboard() {
       setScores(sc);
       setPeriod(pd);
       setBrands(allBrands);
+      setLabels(allLabels);
       const ids = [
         ...new Set([...fl, ...re, ...be, ...tv].map((p) => p.external_id)),
       ];
@@ -138,6 +144,27 @@ export default function Dashboard() {
         <h1 className="mt-3 font-serif text-4xl tracking-tight">
           {todayLabel()}
         </h1>
+        {labels.length > 0 && (
+          <nav className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+              Labels
+            </span>
+            {labels.map((l) => (
+              <a
+                key={l.label_id}
+                href={labelPath(l.slug)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(labelPath(l.slug));
+                }}
+                className="text-sm text-dim hover:text-ink hover:underline"
+              >
+                {l.name}
+                <span className="ml-1.5 text-xs text-dim/70">{l.brands}</span>
+              </a>
+            ))}
+          </nav>
+        )}
         <ScoreExplainer />
       </header>
 
@@ -265,6 +292,7 @@ export default function Dashboard() {
                           {a.brand_name}
                         </a>
                         <span className="text-xs text-dim">{a.brand_type}</span>
+                        <LabelTags labels={a.labels} />
                       </span>
                       <span className="mt-1 block text-[13px] text-dim">
                         {a.posts} post{a.posts === 1 ? "" : "s"} ·{" "}
@@ -283,6 +311,7 @@ export default function Dashboard() {
       {adminOpen && (
         <BrandAdmin
           brands={brands}
+          labels={labels}
           onClose={() => setAdminOpen(false)}
           reload={load}
         />

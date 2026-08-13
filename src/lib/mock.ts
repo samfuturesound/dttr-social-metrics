@@ -112,11 +112,11 @@ export const MOCK_FLAGGED: FlaggedPost[] = [
 ];
 
 export const MOCK_BRANDS: Brand[] = [
-  { id: "b1", metricool_blog_id: 111, name: "Dance to the Radio", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b2", metricool_blog_id: 222, name: "L'objectif", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b3", metricool_blog_id: 333, name: "Twin Atlantic", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b4", metricool_blog_id: 444, name: "Lofi Bloom", brand_type: "theme", owner: "Sam", active: true },
-  { id: "b5", metricool_blog_id: 555, name: "Night Drives", brand_type: "theme", owner: "Sam", active: false },
+  { id: "b1", metricool_blog_id: 111, labels: ["Dance to the Radio"], name: "Dance to the Radio", brand_type: "artist", owner: "Sam", active: true },
+  { id: "b2", metricool_blog_id: 222, labels: ["Dance to the Radio"], name: "L'objectif", brand_type: "artist", owner: "Sam", active: true },
+  { id: "b3", metricool_blog_id: 333, labels: ["Dance to the Radio"], name: "Twin Atlantic", brand_type: "artist", owner: "Sam", active: true },
+  { id: "b4", metricool_blog_id: 444, labels: ["Dance to the Radio"], name: "Lofi Bloom", brand_type: "theme", owner: "Sam", active: true },
+  { id: "b5", metricool_blog_id: 555, labels: ["Dance to the Radio"], name: "Night Drives", brand_type: "theme", owner: "Sam", active: false },
 ];
 
 export const MOCK_PERIOD: Period = {
@@ -126,7 +126,7 @@ export const MOCK_PERIOD: Period = {
 };
 
 export const MOCK_ACCOUNT_SCORES: AccountScore[] = [
-  { brand_name: "L'objectif", brand_type: "artist", owner: "Sam", posts: 28, total_score: 93.9, avg_multiple: 3.4, total_views: 120453, best_multiple: 65.7 },
-  { brand_name: "Tommy Ashby - The Birds", brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
-  { brand_name: "Lofi Bloom", brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
+  { brand_name: "L'objectif", labels: ["Dance to the Radio"], brand_type: "artist", owner: "Sam", posts: 28, total_score: 93.9, avg_multiple: 3.4, total_views: 120453, best_multiple: 65.7 },
+  { brand_name: "Tommy Ashby - The Birds", labels: ["Dance to the Radio"], brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
+  { brand_name: "Lofi Bloom", labels: ["Dance to the Radio"], brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
 ];

@@ -4,6 +4,9 @@ import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./m
 import type {
   AccountScore,
   Brand,
+  Label,
+  LabelShareLink,
+  LabelShareSummary,
   BrandPlatform,
   BrandPlatformRanks,
   BrandSummary,
@@ -288,7 +291,8 @@ export async function fetchBrandSummary(
 ): Promise<BrandSummary | null> {
   if (MOCK) {
     return {
-      brand_id: 1, brand_name: brand, brand_type: "artist", owner: "Sam",
+      brand_id: 1, brand_name: brand, labels: ["Dance to the Radio"],
+      brand_type: "artist", owner: "Sam",
       niche: null, active: true, metricool_blog_id: "0",
       posts_all_time: 75, views_all_time: 1294142, posts_3m: 16,
       views_3m: 132904, platforms: 2, first_post: "2025-08-15",
@@ -472,4 +476,186 @@ export async function fetchBrandPlatformRanks(
     rank_completion_type: num(r.rank_completion_type),
     total_completion_type: num(r.total_completion_type) ?? 0,
   }));
+}
+
+
+/* ---------- Labels (many-to-many) ---------- */
+
+export async function fetchLabels(): Promise<Label[]> {
+  if (MOCK) return [];
+  const { data, error } = await supabase
+    .from("mx_labels")
+    .select("*")
+    .order("name");
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    brands: num(r.brands) ?? 0,
+    active_brands: num(r.active_brands) ?? 0,
+    artist_brands: num(r.artist_brands) ?? 0,
+    theme_brands: num(r.theme_brands) ?? 0,
+  }));
+}
+
+export async function setBrandLabel(
+  brandId: string,
+  labelName: string,
+  on: boolean,
+): Promise<void> {
+  const { error } = await supabase.rpc("mx_set_brand_label", {
+    p_brand_id: brandId,
+    p_label_name: labelName,
+    p_on: on,
+  });
+  fail(error);
+}
+
+export async function addLabel(name: string): Promise<void> {
+  const { error } = await supabase.rpc("mx_add_label", { p_name: name });
+  fail(error);
+}
+
+/** Any post view, filtered to rows whose labels array contains this label. */
+async function fetchLabelView(
+  view: string,
+  label: string,
+  orderCol: string,
+): Promise<PostDetail[]> {
+  const { data, error } = await supabase
+    .from(view)
+    .select("*")
+    .contains("labels", [label])
+    .order(orderCol, { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...mapPost(r),
+    follows: num(r.follows),
+    reach: num(r.reach),
+    duration_seconds: num(r.duration_seconds),
+    weighted_engagement: num(r.weighted_engagement),
+    engagement_rate: num(r.engagement_rate),
+    completion_pct: num(r.completion_pct),
+    engagement_multiple: num(r.engagement_multiple),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+  }));
+}
+
+export function fetchLabelPosts(label: string): Promise<PostDetail[]> {
+  return fetchLabelView("mx_post_detail", label, "published_at");
+}
+
+/** Per-brand, per-platform medians + ranks for every brand under a label. */
+export async function fetchLabelPlatformRanks(
+  label: string,
+): Promise<BrandPlatformRanks[]> {
+  const { data, error } = await supabase
+    .from("mx_brand_platform_ranks")
+    .select("*")
+    .contains("labels", [label])
+    .order("brand_name")
+    .order("posts", { ascending: false });
+  fail(error);
+  return (data ?? []).map((r) => ({
+    ...r,
+    posts: num(r.posts) ?? 0,
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+    completion_available: num(r.completion_available) ?? 0,
+    rank_views_all: num(r.rank_views_all),
+    total_views_all: num(r.total_views_all) ?? 0,
+    rank_views_type: num(r.rank_views_type),
+    total_views_type: num(r.total_views_type) ?? 0,
+    rank_eng_all: num(r.rank_eng_all),
+    total_eng_all: num(r.total_eng_all) ?? 0,
+    rank_eng_type: num(r.rank_eng_type),
+    total_eng_type: num(r.total_eng_type) ?? 0,
+    rank_completion_all: num(r.rank_completion_all),
+    total_completion_all: num(r.total_completion_all) ?? 0,
+    rank_completion_type: num(r.rank_completion_type),
+    total_completion_type: num(r.total_completion_type) ?? 0,
+  }));
+}
+
+/* ---------- Label shares ---------- */
+
+export async function fetchLabelShareSummary(
+  token: string,
+): Promise<LabelShareSummary[]> {
+  const { data, error } = await supabase.rpc("mx_label_share_summary", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...(r as unknown as LabelShareSummary),
+    posts: num(r.posts) ?? 0,
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    median_completion_pct: num(r.median_completion_pct),
+  }));
+}
+
+export async function fetchLabelSharePosts(
+  token: string,
+): Promise<SharePost[]> {
+  const { data, error } = await supabase.rpc("mx_label_share_posts", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...(r as unknown as SharePost),
+    views: num(r.views) ?? 0,
+    median_views: num(r.median_views) ?? 0,
+    views_multiple: num(r.views_multiple) ?? 0,
+    age_days: num(r.age_days) ?? 0,
+    likes: num(r.likes),
+    comments: num(r.comments),
+    shares: num(r.shares),
+    saves: num(r.saves),
+    engagement_rate: num(r.engagement_rate),
+    engagement_multiple: num(r.engagement_multiple),
+    completion_pct: num(r.completion_pct),
+    skip_rate: num(r.skip_rate),
+  }));
+}
+
+export async function listLabelShares(): Promise<LabelShareLink[]> {
+  if (MOCK) return [];
+  const { data, error } = await supabase.rpc("mx_list_label_shares");
+  fail(error);
+  return data ?? [];
+}
+
+export async function createLabelShare(args: {
+  label: string;
+  note: string | null;
+  expiresOn: string | null;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("mx_create_label_share", {
+    p_label: args.label,
+    p_note: args.note,
+    p_expires_on: args.expiresOn,
+  });
+  fail(error);
+  return data as string;
+}
+
+export async function revokeLabelShare(id: number): Promise<void> {
+  const { error } = await supabase.rpc("mx_revoke_label_share", { p_id: id });
+  fail(error);
+}
+
+/** Label name behind a share token — mx_label_share_summary returns brand
+ *  rows only, so the heading comes from here. Null when the token is dead. */
+export async function fetchLabelShareName(
+  token: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("mx_label_share_name", {
+    p_token: token,
+  });
+  fail(error);
+  return (data as string) ?? null;
 }

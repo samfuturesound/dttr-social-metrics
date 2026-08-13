@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { addBrand, setBrandActive } from "../lib/data";
+import { addBrand, addLabel, setBrandActive, setBrandLabel } from "../lib/data";
 import { brandPath, navigate } from "../lib/router";
-import type { Brand } from "../lib/types";
+import type { Brand, Label } from "../lib/types";
 
 const inputCls =
   "w-full border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
 
 export default function BrandAdmin(props: {
   brands: Brand[];
+  labels: Label[];
   onClose: () => void;
   reload: () => Promise<void>;
 }) {
@@ -20,6 +21,8 @@ export default function BrandAdmin(props: {
   const [fieldErr, setFieldErr] = useState<{ name?: string; blogId?: string }>(
     {},
   );
+  const [newLabel, setNewLabel] = useState("");
+  const [showNewLabel, setShowNewLabel] = useState(false);
 
   function run(fn: () => Promise<void>) {
     setErr(null);
@@ -76,32 +79,107 @@ export default function BrandAdmin(props: {
 
         <ul className="mb-10 divide-y divide-line">
           {props.brands.map((b) => (
-            <li key={b.id} className="flex items-baseline justify-between py-2.5 text-sm">
-              <span className={b.active ? "" : "text-dim line-through"}>
-                <a
-                  href={brandPath(b.name)}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    props.onClose();
-                    navigate(brandPath(b.name));
-                  }}
-                  className="hover:underline"
-                >
-                  {b.name}
-                </a>
-                <span className="ml-2 text-xs text-dim">
-                  {b.brand_type} · {b.metricool_blog_id}
+            <li key={b.id} className="py-3 text-sm">
+              <div className="flex items-baseline justify-between">
+                <span className={b.active ? "" : "text-dim line-through"}>
+                  <a
+                    href={brandPath(b.name)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      props.onClose();
+                      navigate(brandPath(b.name));
+                    }}
+                    className="hover:underline"
+                  >
+                    {b.name}
+                  </a>
+                  <span className="ml-2 text-xs text-dim">
+                    {b.brand_type} · {b.metricool_blog_id}
+                  </span>
                 </span>
-              </span>
-              <button
-                className="text-xs text-dim underline underline-offset-2 hover:text-ink"
-                onClick={() => run(() => setBrandActive(b.id, !b.active))}
-              >
-                {b.active ? "deactivate" : "activate"}
-              </button>
+                <button
+                  className="text-xs text-dim underline underline-offset-2 hover:text-ink"
+                  onClick={() => run(() => setBrandActive(b.id, !b.active))}
+                >
+                  {b.active ? "deactivate" : "activate"}
+                </button>
+              </div>
+              {/* Labels are many-to-many — every label is a checkbox, and a
+                  brand can carry any number of them. */}
+              {props.labels.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  {props.labels.map((l) => {
+                    const on = (b.labels ?? []).includes(l.name);
+                    return (
+                      <label
+                        key={l.label_id}
+                        className={`flex items-center gap-1.5 text-xs ${on ? "text-ink" : "text-dim"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={(e) =>
+                            run(() =>
+                              setBrandLabel(b.id, l.name, e.target.checked),
+                            )
+                          }
+                        />
+                        {l.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </li>
           ))}
         </ul>
+
+        <div className="mb-10">
+          <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+            Labels
+          </h3>
+          {showNewLabel ? (
+            <form
+              className="flex items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const n = newLabel.trim();
+                if (!n) return;
+                run(() => addLabel(n));
+                setNewLabel("");
+                setShowNewLabel(false);
+              }}
+            >
+              <input
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Label name"
+                autoFocus
+                className={inputCls}
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-full bg-ink px-4 py-1 text-[13px] text-paper hover:opacity-90"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                className="shrink-0 text-[13px] text-dim hover:text-ink"
+                onClick={() => setShowNewLabel(false)}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button
+              className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+              onClick={() => setShowNewLabel(true)}
+            >
+              New label
+            </button>
+          )}
+        </div>
 
         <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
           Add brand

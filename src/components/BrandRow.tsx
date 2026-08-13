@@ -174,3 +174,39 @@ export function PlatformTable(props: {
     </div>
   );
 }
+
+/** Small grey label tags. A brand with two labels shows two. */
+export function LabelTags({
+  labels,
+  onNavigate,
+}: {
+  labels: string[] | null | undefined;
+  onNavigate?: (name: string) => void;
+}) {
+  if (!labels || labels.length === 0) return null;
+  return (
+    <span className="inline-flex flex-wrap gap-1.5">
+      {labels.map((l) =>
+        onNavigate ? (
+          <button
+            key={l}
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate(l);
+            }}
+            className="rounded-full border border-line px-2 py-px text-[10px] uppercase tracking-wider text-dim hover:border-dim hover:text-ink"
+          >
+            {l}
+          </button>
+        ) : (
+          <span
+            key={l}
+            className="rounded-full border border-line px-2 py-px text-[10px] uppercase tracking-wider text-dim"
+          >
+            {l}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
