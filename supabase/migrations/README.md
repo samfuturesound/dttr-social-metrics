@@ -32,6 +32,7 @@ Applied in filename order they build the whole schema from an empty project:
 | `…141027_brand_platform_summary_use_mv` | repoints `brand_platform_summary` at the MV |
 | `…141041_share_functions_use_mv_and_refresh_rpc` | share functions read the MV; `mx_refresh_derived()` |
 | `…141226_schedule_derived_refresh_pg_cron` | schedules the nightly refresh |
+| `…142307_post_engagement_drop_redundant_extras_cte` | removes the duplicated `DISTINCT ON` |
 
 The view files must run in order — the views form a dependency chain six levels
 deep, from `raw_snapshots` up to `brand_platform_ranks`.
@@ -91,6 +92,44 @@ time to a viewer. A share page will keep rendering yesterday's, or last month's,
 figures perfectly happily. When diagnosing "the numbers look wrong on a share
 link", check `cron.job_run_details` for `mx-refresh-derived` before looking
 anywhere else.
+
+## The `extras` CTE, and symptom versus cause
+
+`metrics.post_engagement` used to carry an `extras` CTE: a `DISTINCT ON` over
+`snapshots_aged` to pick the latest snapshot per post, joined back on
+`(external_id, network, content_type)` purely to fetch `follows`, `reach` and
+`duration_seconds`.
+
+It duplicated work `scored_posts` had already done. `scored_posts`' `latest` CTE
+performs the identical `DISTINCT ON` and already selects those three columns —
+it simply did not project them. Worse, the planner did not hoist `extras` out of
+the join: it re-executed it **once per `scored_posts` row — 596 loops** over all
+of `raw_snapshots`, **2,897,752 of 2,903,711 buffers, 99.8% of the query's total
+cost**. `extras` also emitted 616 stories rows that could never match, since
+`scored_posts` excludes stories.
+
+The fix projects the three columns from `scored_posts` and deletes the CTE and
+its join, making it a single pass. Verified equivalent before and after against
+the live database: identical md5 over the full ordered output of
+`post_engagement`, identical row counts for `mx_post_detail`,
+`mx_brand_platform_summary`, `mx_best`, `mx_leading` and `mx_flagged`. The
+migration carries that check inline as a `DO` block that raises on any
+difference, so a replay that is not equivalent aborts rather than half-applying.
+
+**This is the cause; the two changes before it addressed the symptom.** The
+`brand_name` text join and `post_detail_mv` stopped anonymous share links from
+computing all 12 brands, which is what made the timeout visible. But the
+per-row re-scan underneath was still there, still being paid — by the nightly
+`REFRESH`, and by every internal dashboard page, which reads `post_detail`
+rather than the MV. Removing `extras` removes it from all three paths.
+
+Measured after the change, against the live database:
+
+| Query | Before | After |
+|---|---|---|
+| `mx_share_summary` as `anon` | 4,680ms / 2,905,325 buffers | **7.6ms / 1,086 buffers** |
+| `mx_share_posts` as `anon` | 1,780ms | **3.1ms / 463 buffers** |
+| `mx_post_detail` as `authenticated` | — | **751ms / 5,870 buffers** |
 
 ## Three history rows with no file here
 
