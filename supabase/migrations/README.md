@@ -28,6 +28,10 @@ Applied in filename order they build the whole schema from an empty project:
 | `…125511_mx_rls_policies_initplan_optimisation` | rewrites the `mx_internal_read` policies |
 | `…125835_raw_snapshots_distinct_on_support_index` | index for the `DISTINCT ON` sort |
 | `…130153_authenticated_statement_timeout_20s` | raises the statement timeout to 20s |
+| `…141004_post_detail_materialized_view` | `metrics.post_detail_mv` + its indexes |
+| `…141027_brand_platform_summary_use_mv` | repoints `brand_platform_summary` at the MV |
+| `…141041_share_functions_use_mv_and_refresh_rpc` | share functions read the MV; `mx_refresh_derived()` |
+| `…141226_schedule_derived_refresh_pg_cron` | schedules the nightly refresh |
 
 The view files must run in order — the views form a dependency chain six levels
 deep, from `raw_snapshots` up to `brand_platform_ranks`.
@@ -64,6 +68,29 @@ enough to 8s that the default trips them under load. Set at the role level via
 schema and will not survive a rebuild unless `…130153` is applied. It was
 originally run as a direct statement with no history row; that is why the
 migration exists.
+
+## `post_detail_mv`, and the one way it fails
+
+`metrics.post_detail_mv` is materialized rather than a plain view because
+`brand_platform_summary` previously joined `post_detail` on `brand_name` — a
+text column. That blocked predicate pushdown: filtering by one brand could not
+be pushed down into the view stack, so every anonymous share link computed all
+12 brands before discarding 11 of them. **4.7s, against the 3s
+`statement_timeout` the `anon` role carries — so public share links timed out
+rather than merely being slow.** The MV carries `brand_id` and is indexed on it,
+so a share link now filters on an integer key.
+
+**It is refreshed by the pg_cron job `mx-refresh-derived` at 03:30 daily, thirty
+minutes after FS-6.** The refresh is `REFRESH MATERIALIZED VIEW CONCURRENTLY`,
+which is why `post_detail_mv_key` is a unique index — concurrent refresh
+requires one.
+
+**If that job stops, share links silently serve stale data rather than
+failing.** There is no staleness check and nothing surfaces the last refresh
+time to a viewer. A share page will keep rendering yesterday's, or last month's,
+figures perfectly happily. When diagnosing "the numbers look wrong on a share
+link", check `cron.job_run_details` for `mx-refresh-derived` before looking
+anywhere else.
 
 ## Three history rows with no file here
 
