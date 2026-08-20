@@ -33,6 +33,7 @@ Applied in filename order they build the whole schema from an empty project:
 | `…141041_share_functions_use_mv_and_refresh_rpc` | share functions read the MV; `mx_refresh_derived()` |
 | `…141226_schedule_derived_refresh_pg_cron` | schedules the nightly refresh |
 | `…142307_post_engagement_drop_redundant_extras_cte` | removes the duplicated `DISTINCT ON` |
+| `…063822_grant_service_role_metrics_read` | restores `service_role` access to `metrics` |
 
 The view files must run in order — the views form a dependency chain six levels
 deep, from `raw_snapshots` up to `brand_platform_ranks`.
@@ -131,6 +132,30 @@ Measured after the change, against the live database:
 | `mx_share_posts` as `anon` | 1,780ms | **3.1ms / 463 buffers** |
 | `mx_post_detail` as `authenticated` | — | **751ms / 5,870 buffers** |
 
+## `service_role` needs read on `metrics` — do not revoke it
+
+Make's **FS-6 authenticates as `service_role`** and reads `public.mx_brands`.
+That view is security_invoker and sits on `metrics.brands` joined to
+`metrics.brand_label_names`, so reading it requires `USAGE` on the `metrics`
+schema and `SELECT` on the tables underneath. Ingestion additionally writes
+`metrics.raw_snapshots`, and the digest path writes `metrics.digest_sends`.
+
+This was missed when the schema was rebuilt onto this project. The old shared
+project granted `service_role=arwd` on every `metrics` table; the rebuild created
+them with no grants at all, and `mx_secure_metrics_views()` grants only to
+`authenticated`. Nothing caught it, because every check to that point had been
+run as `postgres`, which owns the tables and bypasses grants entirely. **FS-6
+failed with 403 permission denied on its first unattended run.**
+
+`…063822` restores it, and sets default privileges in the schema so new tables
+inherit `SELECT` for `service_role` rather than reintroducing the same gap the
+next time a table is added.
+
+The lesson for anyone tightening grants here: `authenticated` and `anon` are not
+the only roles that matter. The edge functions, the pg_cron jobs and the external
+Make scenarios all arrive as `service_role`, and none of them are exercised by
+opening the dashboard.
+
 ## Three history rows with no file here
 
 The remote history table on the new project also lists
@@ -158,6 +183,10 @@ post-derived view reads zero.
 were safe only because each calls `mx_assert_internal()` internally. That is not
 reproduced: `PUBLIC` is revoked and every role is granted explicitly. Only the
 six token-scoped share readers plus the two guard helpers are anon-callable.
+
+Note that this was the only *intended* grant difference. The loss of
+`service_role` read on the `metrics` schema was not deliberate — it was an
+omission in the rebuild, and it broke FS-6. See the `service_role` section above.
 
 **`security_invoker`.** Every `public.mx_*` view sets it. These views are thin
 projections over the `metrics` schema, and the RLS that actually protects the
