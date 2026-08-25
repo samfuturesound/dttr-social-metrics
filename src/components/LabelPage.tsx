@@ -20,6 +20,7 @@ import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
 import LabelShareManager from "./LabelShareManager";
+import { AppBar, TopStripe } from "./Chrome";
 
 const QUARTER_DAYS = 92;
 const PAGE_SIZE = 10;
@@ -160,70 +161,61 @@ export default function LabelPage({ slug }: { slug: string }) {
   const totalViews = platforms.reduce((n, r) => n + r.views, 0);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
-      <header className="mb-12">
-        <a
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/");
-          }}
-          className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
-        >
-          ← Board
-        </a>
-        <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-          Label
-        </p>
-        <h1 className="mt-1 font-serif text-4xl tracking-tight">
-          {label?.name ?? slug}
-        </h1>
+    <>
+      <TopStripe />
+      <AppBar current="label" />
+
+      <div className="wrap">
+        <div className="pagehead">
+          <h1>{label?.name ?? slug}</h1>
+          <p className="sub">Label</p>
+        </div>
 
         {label && label.brands > 0 && (
           <>
-            <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
+            <div className="kpis">
               <Stat value={String(label.brands)} label="Brands" />
               <Stat value={String(label.artist_brands)} label="Artists" />
               <Stat value={String(label.theme_brands)} label="Theme accounts" />
-              {totalPosts > 0 && (
-                <Stat value={String(totalPosts)} label="Posts" />
-              )}
-              {totalViews > 0 && (
-                <Stat value={compact(totalViews)} label="Views" />
-              )}
+              <Stat
+                value={totalViews > 0 ? compact(totalViews) : String(totalPosts)}
+                label={totalViews > 0 ? "Views" : "Posts"}
+                meta={totalViews > 0 ? `${totalPosts} posts` : undefined}
+              />
             </div>
-            <SkipRateExplainer roster={skipRoster} className="mt-4" />
+
+            <div className="card">
+              <SkipRateExplainer roster={skipRoster} />
+            </div>
+
             <LabelShareManager labelName={label.name} />
           </>
         )}
-      </header>
 
-      {error && <p className="mb-8 text-sm text-accent">{error}</p>}
+      {error && <p className="err-line">{error}</p>}
 
       {notFound && (
-        <p className="py-24 text-center text-sm text-dim">
+        <p className="empty">
           No label with that address.
         </p>
       )}
 
       {!notFound && posts === null && !error && (
-        <p className="py-24 text-center text-sm text-dim">Loading…</p>
+        <p className="empty">Loading…</p>
       )}
 
       {/* A label with no brands yet is an ordinary state, not an error. */}
       {!notFound && posts !== null && label && label.brands === 0 && (
-        <div className="py-24 text-center">
-          <p className="font-serif text-3xl">
-            No brands tagged with this label yet.
-          </p>
-          <p className="mt-3 text-sm text-dim">
-            Tag brands from the Brands panel and they'll appear here.
-          </p>
+        <div className="empty">
+          <b>No brands tagged with this label yet.</b>
+          <div style={{ marginTop: 6 }}>
+            Tag brands from the Brands panel and they&rsquo;ll appear here.
+          </div>
         </div>
       )}
 
       {!notFound && posts !== null && label && label.brands > 0 && (
-        <div className="space-y-12">
+        <>
           {byBrand.length > 0 && (
             <Section
               id={`label-${slug}-brands`}
@@ -231,7 +223,7 @@ export default function LabelPage({ slug }: { slug: string }) {
               count={byBrand.length}
               subtitle="Per-platform medians and roster position for each brand under this label."
             >
-              <div className="space-y-8 pt-4">
+              <div>
                 {byBrand.map(([brand, rows]) => (
                   <div key={brand}>
                     <a
@@ -240,7 +232,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                         e.preventDefault();
                         navigate(brandPath(brand));
                       }}
-                      className="font-serif text-xl hover:underline"
+                      style={{fontSize:18,fontWeight:700,color:"inherit"}}
                     >
                       {brand}
                     </a>
@@ -262,7 +254,7 @@ export default function LabelPage({ slug }: { slug: string }) {
             {leading.length === 0 ? (
               <Empty>Nothing above typical this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {leading.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -274,7 +266,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                     )}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -288,7 +280,7 @@ export default function LabelPage({ slug }: { slug: string }) {
               <Empty>Nothing here yet.</Empty>
             ) : (
               <>
-                <ul className="divide-y divide-line">
+                <div>
                   {posts.slice(0, Math.min(latestVisible, PAGE_MAX)).map((p) => (
                     <BrandRow
                       key={p.external_id}
@@ -300,10 +292,10 @@ export default function LabelPage({ slug }: { slug: string }) {
                       )}
                     />
                   ))}
-                </ul>
+                </div>
                 {latestVisible < Math.min(posts.length, PAGE_MAX) && (
                   <button
-                    className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+                    className="lnk"
                     onClick={() =>
                       setLatestVisible((v) => Math.min(v + PAGE_SIZE, PAGE_MAX))
                     }
@@ -323,7 +315,7 @@ export default function LabelPage({ slug }: { slug: string }) {
             count={mostViewed.length}
             subtitle="Raw reach — biggest posts regardless of how normal that is for the account."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {mostViewed.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -335,7 +327,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                   )}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
           <Section
@@ -345,7 +337,7 @@ export default function LabelPage({ slug }: { slug: string }) {
             count={bestScoring.length}
             subtitle="Furthest above the account's own typical performance."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {bestScoring.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -357,11 +349,11 @@ export default function LabelPage({ slug }: { slug: string }) {
                   )}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
-          <div className="space-y-4 pt-4">
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
+          <div>
+            <h2 className="lab-mono">
               Engagement
             </h2>
             <EngagementExplainer />
@@ -377,7 +369,7 @@ export default function LabelPage({ slug }: { slug: string }) {
             {bestEngagement.length === 0 ? (
               <Empty>Nothing above the norm this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {bestEngagement.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -389,7 +381,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                     )}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -403,13 +395,13 @@ export default function LabelPage({ slug }: { slug: string }) {
             {topEngRateGroups.length === 0 ? (
               <Empty>No engagement data yet.</Empty>
             ) : (
-              <div className="space-y-6">
+              <div>
                 {topEngRateGroups.map((g) => (
                   <div key={g.label}>
-                    <h4 className="pt-4 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
+                    <h4 className="lab-mono">
                       {g.label}
                     </h4>
-                    <ul className="divide-y divide-line">
+                    <div>
                       {g.posts.map((p) => (
                         <BrandRow
                           key={p.external_id}
@@ -421,7 +413,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                           )}
                         />
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -438,7 +430,7 @@ export default function LabelPage({ slug }: { slug: string }) {
             {mostWatched.length === 0 ? (
               <Empty>No video duration data for these accounts.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {mostWatched.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -450,11 +442,12 @@ export default function LabelPage({ slug }: { slug: string }) {
                     )}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
-        </div>
+        </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -43,22 +43,28 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, [isPublic]);
 
-  // Public routes sit ahead of the auth gate — the share RPCs are granted to
-  // anon and scoped to their token, so no session is needed or wanted.
-  if (labelShareToken)
-    return <LabelSharePage key={labelShareToken} token={labelShareToken} />;
-  if (shareToken) return <SharePage key={shareToken} token={shareToken} />;
+  return <div className="mx">{route()}</div>;
 
-  if (!ready) return null;
-  if (!MOCK && !session) return <Login />;
+  // The theme's tokens are scoped to .mx, so every screen — including the
+  // gate — has to render inside that wrapper.
+  function route() {
+    // Public routes sit ahead of the auth gate — the share RPCs are granted to
+    // anon and scoped to their token, so no session is needed or wanted.
+    if (labelShareToken)
+      return <LabelSharePage key={labelShareToken} token={labelShareToken} />;
+    if (shareToken) return <SharePage key={shareToken} token={shareToken} />;
 
-  // Internal only — never reachable from a /share route.
-  if (isAskPath(path)) return <AskPage />;
+    if (!ready) return null;
+    if (!MOCK && !session) return <Login />;
 
-  const labelSlug = labelFromPath(path);
-  if (labelSlug) return <LabelPage key={labelSlug} slug={labelSlug} />;
+    // Internal only — never reachable from a /share route.
+    if (isAskPath(path)) return <AskPage />;
 
-  const brand = brandFromPath(path);
-  if (brand) return <BrandPage key={brand} brand={brand} />;
-  return <Dashboard />;
+    const labelSlug = labelFromPath(path);
+    if (labelSlug) return <LabelPage key={labelSlug} slug={labelSlug} />;
+
+    const brand = brandFromPath(path);
+    if (brand) return <BrandPage key={brand} brand={brand} />;
+    return <Dashboard />;
+  }
 }

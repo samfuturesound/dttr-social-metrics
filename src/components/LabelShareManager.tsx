@@ -8,7 +8,7 @@ import { shortDate } from "../lib/format";
 import type { LabelShareLink } from "../lib/types";
 
 const inputCls =
-  "border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
+  "f";
 
 function defaultExpiry(): string {
   const d = new Date();
@@ -24,7 +24,7 @@ function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      className="shrink-0 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+      className="lnk"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(url);
@@ -106,7 +106,7 @@ export default function LabelShareManager({
   if (!open) {
     return (
       <button
-        className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+        className="lnk"
         onClick={() => setOpen(true)}
       >
         Share this label
@@ -115,20 +115,20 @@ export default function LabelShareManager({
   }
 
   return (
-    <div className="mt-6 max-w-2xl border-t border-line pt-5">
+    <div className="card">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+        <h3 className="lab-mono">
           Share links
         </h3>
         <button
-          className="text-[13px] text-dim hover:text-ink"
+          className="btn x"
           onClick={() => setOpen(false)}
         >
           Close
         </button>
       </div>
 
-      <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-dim">
+      <p className="note">
         A share link shows every brand under {labelName}, with no sign-in —
         anyone who has the link can open it. Send it to the label; don't use it
         for anything confidential. Paid support, spend, internal notes and
@@ -136,11 +136,11 @@ export default function LabelShareManager({
         immediately.
       </p>
 
-      {err && <p className="mt-3 text-sm text-accent">{err}</p>}
+      {err && <p className="err-line">{err}</p>}
 
       {justCreated && (
-        <div className="mt-4 flex items-center gap-3 border-b border-line pb-2">
-          <span className="min-w-0 flex-1 truncate font-serif text-sm">
+        <div className="rowhead">
+          <span className="min-w-0 flex-1 truncate text-sm">
             {labelShareUrl(justCreated)}
           </span>
           <CopyButton url={labelShareUrl(justCreated)} />
@@ -154,7 +154,7 @@ export default function LabelShareManager({
           placeholder={`Note, e.g. "${labelName} A&R"`}
           className={`min-w-56 flex-1 ${inputCls}`}
         />
-        <label className="flex items-center gap-2 text-[13px] text-dim">
+        <label className="f" style={{display:"flex",alignItems:"center",gap:8}}>
           <input
             type="checkbox"
             checked={noExpiry}
@@ -173,24 +173,24 @@ export default function LabelShareManager({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-full bg-ink px-4 py-1 text-[13px] text-paper hover:opacity-90 disabled:opacity-50"
+          className="btn solid"
         >
           {busy ? "Creating…" : "Create link"}
         </button>
       </form>
 
       {active.length > 0 && (
-        <ul className="mt-6 divide-y divide-line">
+        <div>
           {active.map((l) => (
             <li key={l.id} className="flex items-center gap-3 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">
                   {l.note || "Untitled link"}
                 </span>
-                <span className="mt-0.5 block truncate text-[13px] text-dim">
+                <span className="when" style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {labelShareUrl(l.token)}
                 </span>
-                <span className="mt-0.5 block text-xs text-dim">
+                <span className="when">
                   Created {shortDate(l.created_at)} ·{" "}
                   {l.expires_on
                     ? `expires ${shortDate(l.expires_on)}`
@@ -199,25 +199,25 @@ export default function LabelShareManager({
               </span>
               <CopyButton url={labelShareUrl(l.token)} />
               <button
-                className="shrink-0 text-[13px] text-dim underline underline-offset-2 hover:text-accent"
+                className="lnk"
                 onClick={() => revoke(l.id)}
               >
                 Revoke
               </button>
             </li>
           ))}
-        </ul>
+        </div>
       )}
 
       {inactive.length > 0 && (
-        <p className="mt-4 text-[13px] text-dim">
+        <p className="note">
           {inactive.length} revoked or expired link
           {inactive.length > 1 ? "s" : ""} for this label.
         </p>
       )}
 
       {links.length === 0 && (
-        <p className="mt-5 text-[13px] text-dim">No share links yet.</p>
+        <p className="note">No share links yet.</p>
       )}
     </div>
   );

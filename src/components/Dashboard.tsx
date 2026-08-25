@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, MOCK } from "../lib/supabase";
 import {
   fetchAccountScores,
@@ -21,7 +15,7 @@ import {
   fetchStreaming,
   fetchTopViews,
 } from "../lib/data";
-import { compact, shortDate, todayLabel } from "../lib/format";
+import { compact, multiple, shortDate, todayLabel } from "../lib/format";
 import type {
   AccountScore,
   Brand,
@@ -38,6 +32,7 @@ import BrandAdmin from "./BrandAdmin";
 import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
 import { SkipRatePanel } from "./SkipRateExplainer";
+import { AppBar, TopStripe } from "./Chrome";
 import { brandPath, labelPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
@@ -129,250 +124,284 @@ export default function Dashboard() {
     [best],
   );
 
+  /** All four figures come from data already fetched — no extra round trips. */
+  const kpis = useMemo(() => {
+    const topMult = (leading ?? []).reduce<number | null>(
+      (m, p) => (p.views_multiple != null && (m == null || p.views_multiple > m) ? p.views_multiple : m),
+      null,
+    );
+    const views = scores.reduce((s, a) => s + (a.total_views ?? 0), 0);
+    return {
+      leadingCount: leading?.length ?? 0,
+      topMult,
+      views,
+      accounts: scores.length,
+    };
+  }, [leading, scores]);
+
   const rowProps = { notes, interventions, streaming, openId, setOpenId, skipByBrand };
   const loaded = leading !== null;
   const windowLabel = period
-    ? `${shortDate(period.period_start)} \u2013 ${shortDate(period.period_end)}`
+    ? `${shortDate(period.period_start)} – ${shortDate(period.period_end)}`
     : `last 30 days`;
-  const bestLabel = "last 6 months, 2.5\u00d7 or better";
+  const bestLabel = "last 6 months, 2.5× or better";
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
-      <header className="mb-12">
-        <div className="flex items-baseline justify-between">
-          <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-            Dance to the Radio
-            {MOCK && <span className="ml-3 text-accent">mock data</span>}
+    <>
+      <TopStripe />
+      <AppBar
+        current="board"
+        onBrands={() => setAdminOpen(true)}
+        onSignOut={MOCK ? undefined : () => supabase.auth.signOut()}
+      />
+
+      <div className="wrap">
+        <div className="pagehead">
+          <h1>{todayLabel()}</h1>
+          <p className="sub">
+            What&rsquo;s performing unusually well across the roster this
+            morning. {MOCK && <b>Mock data.</b>}
           </p>
-          <nav className="flex gap-5 text-[13px] text-dim">
-            <a
-              href="/ask"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/ask");
-              }}
-              className="hover:text-ink"
+        </div>
+
+        {error && (
+          <div className="ratewarn">
+            <h4>Could not load</h4>
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!loaded && !error && <div className="empty">Loading&hellip;</div>}
+
+        {loaded && (
+          <>
+            <div className="kpis">
+              <div className="kpi">
+                <div className="k">Above baseline</div>
+                <div className="v">{kpis.leadingCount}</div>
+                <div className="m">{windowLabel}</div>
+              </div>
+              <div className="kpi">
+                <div className="k">Top multiple</div>
+                <div className="v">{multiple(kpis.topMult)}</div>
+                <div className="m">best post right now</div>
+              </div>
+              <div className="kpi">
+                <div className="k">Views</div>
+                <div className="v">{compact(kpis.views)}</div>
+                <div className="m">{windowLabel}</div>
+              </div>
+              <div className="kpi">
+                <div className="k">Accounts scored</div>
+                <div className="v">{kpis.accounts}</div>
+                <div className="m">10+ posts of history</div>
+              </div>
+            </div>
+
+            {labels.length > 0 && (
+              <div className="card">
+                <div className="eyebrow">
+                  <span>Labels</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {labels.map((l) => (
+                    <a
+                      key={l.label_id}
+                      href={labelPath(l.slug)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate(labelPath(l.slug));
+                      }}
+                      className="btn"
+                      style={{ textDecoration: "none" }}
+                    >
+                      {l.name}{" "}
+                      <span className="num" style={{ color: "var(--muted)" }}>
+                        {l.brands}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="card">
+              <div className="eyebrow">
+                <span>Explainers</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center" }}>
+                <button
+                  className="lnk"
+                  onClick={() => setExplainer((e) => (e === "score" ? null : "score"))}
+                  aria-expanded={explainer === "score"}
+                >
+                  What does 3&times; mean?
+                </button>
+                <button
+                  className="lnk"
+                  onClick={() => setExplainer((e) => (e === "skip" ? null : "skip"))}
+                  aria-expanded={explainer === "skip"}
+                >
+                  What is skip rate?
+                </button>
+              </div>
+              {explainer === "score" && (
+                <>
+                  <hr className="r" />
+                  <ScorePanel />
+                </>
+              )}
+              {explainer === "skip" && (
+                <>
+                  <hr className="r" />
+                  <SkipRatePanel roster={skipRoster} />
+                </>
+              )}
+            </div>
+
+            <Section
+              id="leading"
+              title="Leading"
+              timescale={windowLabel}
+              count={leading?.length ?? 0}
+              defaultOpen
             >
-              AI Summarise
-            </a>
-            <button className="hover:text-ink" onClick={() => setAdminOpen(true)}>
-              Brands
-            </button>
-            {!MOCK && (
-              <button
-                className="hover:text-ink"
-                onClick={() => supabase.auth.signOut()}
-              >
-                Sign out
-              </button>
-            )}
-          </nav>
-        </div>
-        <h1 className="mt-3 font-serif text-4xl tracking-tight">
-          {todayLabel()}
-        </h1>
-        {labels.length > 0 && (
-          <nav className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
-              Labels
-            </span>
-            {labels.map((l) => (
-              <a
-                key={l.label_id}
-                href={labelPath(l.slug)}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(labelPath(l.slug));
-                }}
-                className="text-sm text-dim hover:text-ink hover:underline"
-              >
-                {l.name}
-                <span className="ml-1.5 text-xs text-dim/70">{l.brands}</span>
-              </a>
-            ))}
-          </nav>
+              {!leading || leading.length === 0 ? (
+                <Empty>Nothing is beating its baseline this morning.</Empty>
+              ) : (
+                <PostList listId="leading" posts={leading} {...rowProps} reload={load} />
+              )}
+            </Section>
+
+            <Section
+              id="latest-artists"
+              title="Latest artist posts"
+              timescale="most recent"
+              count={latestArtists.length}
+            >
+              {latestArtists.length === 0 ? (
+                <Empty>Nothing here yet.</Empty>
+              ) : (
+                <PaginatedPostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
+              )}
+            </Section>
+
+            <Section
+              id="latest-themes"
+              title="Latest theme account posts"
+              timescale="most recent"
+              count={latestThemes.length}
+            >
+              {latestThemes.length === 0 ? (
+                <Empty>Nothing here yet.</Empty>
+              ) : (
+                <PaginatedPostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
+              )}
+            </Section>
+
+            <Section
+              id="best-artists"
+              title="Best performing artist posts"
+              timescale={bestLabel}
+              count={bestArtists.length}
+            >
+              {bestArtists.length === 0 ? (
+                <Empty>Nothing has beaten its baseline yet.</Empty>
+              ) : (
+                <PostList listId="best-artists" posts={bestArtists} {...rowProps} reload={load} />
+              )}
+            </Section>
+
+            <Section
+              id="best-themes"
+              title="Best performing theme posts"
+              timescale={bestLabel}
+              count={bestThemes.length}
+            >
+              {bestThemes.length === 0 ? (
+                <Empty>Nothing has beaten its baseline yet.</Empty>
+              ) : (
+                <PostList listId="best-themes" posts={bestThemes} {...rowProps} reload={load} />
+              )}
+            </Section>
+
+            <Section
+              id="most-viewed"
+              title="Most viewed"
+              timescale={windowLabel}
+              count={topViews.length}
+            >
+              {topViews.length === 0 ? (
+                <Empty>Nothing yet.</Empty>
+              ) : (
+                <PostList
+                  listId="most-viewed"
+                  posts={topViews}
+                  variant="reach"
+                  {...rowProps}
+                  reload={load}
+                />
+              )}
+            </Section>
+
+            <Section
+              id="leaderboard"
+              title="Account leaderboard"
+              timescale={windowLabel}
+              count={scores.length}
+              subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
+            >
+              {scores.length === 0 ? (
+                <Empty>Nothing scored yet.</Empty>
+              ) : (
+                <div className="scroll">
+                  <table className="t">
+                    <thead>
+                      <tr>
+                        <th>Account</th>
+                        <th>Posts</th>
+                        <th>Avg multiple</th>
+                        <th>Views</th>
+                        <th>Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scores.map((a) => (
+                        <tr key={a.brand_name}>
+                          <td>
+                            <a
+                              href={brandPath(a.brand_name)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigate(brandPath(a.brand_name));
+                              }}
+                              style={{ color: "inherit", fontWeight: 700 }}
+                            >
+                              {a.brand_name}
+                            </a>
+                            <span style={{ color: "var(--muted)", marginLeft: 8 }}>
+                              {a.brand_type}
+                            </span>
+                            <LabelTags labels={a.labels} />
+                          </td>
+                          <td>{a.posts}</td>
+                          <td>{a.avg_multiple.toFixed(1)}&times;</td>
+                          <td>{compact(a.total_views)}</td>
+                          <td style={{ fontWeight: 700 }}>
+                            {a.total_score >= 100
+                              ? Math.round(a.total_score)
+                              : a.total_score.toFixed(1)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Section>
+          </>
         )}
-        {/* Grouped as one labelled set, tight under the Labels row above so
-            the two read as a block rather than loose links. */}
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
-            Explainers
-          </span>
-          <button
-            className={`text-[13px] underline underline-offset-2 hover:text-ink ${
-              explainer === "score" ? "text-ink" : "text-dim"
-            }`}
-            onClick={() =>
-              setExplainer((e) => (e === "score" ? null : "score"))
-            }
-            aria-expanded={explainer === "score"}
-          >
-            What does <span className="font-serif">3×</span> mean?
-          </button>
-          <span aria-hidden className="text-[13px] text-dim/50">
-            ·
-          </span>
-          <button
-            className={`text-[13px] underline underline-offset-2 hover:text-ink ${
-              explainer === "skip" ? "text-ink" : "text-dim"
-            }`}
-            onClick={() => setExplainer((e) => (e === "skip" ? null : "skip"))}
-            aria-expanded={explainer === "skip"}
-          >
-            What is skip rate?
-          </button>
-        </div>
-        {explainer === "score" && (
-          <div className="mt-3">
-            <ScorePanel />
-          </div>
-        )}
-        {explainer === "skip" && (
-          <div className="mt-3">
-            <SkipRatePanel roster={skipRoster} />
-          </div>
-        )}
-      </header>
-
-      {error && <p className="mb-8 text-sm text-accent">{error}</p>}
-
-      {!loaded && !error && (
-        <p className="py-24 text-center text-sm text-dim">Loading…</p>
-      )}
-
-      {loaded && (
-        <div className="space-y-12">
-          <Section
-            id="leading"
-            title="Leading"
-            timescale={windowLabel}
-            count={leading?.length ?? 0}
-            defaultOpen
-          >
-            {!leading || leading.length === 0 ? (
-              <Empty>Nothing is beating its baseline this morning.</Empty>
-            ) : (
-              <PostList listId="leading" posts={leading} {...rowProps} reload={load} />
-            )}
-          </Section>
-
-          <Section
-            id="latest-artists"
-            title="Latest artist posts"
-            timescale="most recent"
-            count={latestArtists.length}
-          >
-            {latestArtists.length === 0 ? (
-              <Empty>Nothing here yet.</Empty>
-            ) : (
-              <PaginatedPostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
-            )}
-          </Section>
-
-          <Section
-            id="latest-themes"
-            title="Latest theme account posts"
-            timescale="most recent"
-            count={latestThemes.length}
-          >
-            {latestThemes.length === 0 ? (
-              <Empty>Nothing here yet.</Empty>
-            ) : (
-              <PaginatedPostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
-            )}
-          </Section>
-
-          <Section
-            id="best-artists"
-            title="Best performing artist posts"
-            timescale={bestLabel}
-            count={bestArtists.length}
-          >
-            {bestArtists.length === 0 ? (
-              <Empty>Nothing has beaten its baseline yet.</Empty>
-            ) : (
-              <PostList listId="best-artists" posts={bestArtists} {...rowProps} reload={load} />
-            )}
-          </Section>
-
-          <Section
-            id="best-themes"
-            title="Best performing theme posts"
-            timescale={bestLabel}
-            count={bestThemes.length}
-          >
-            {bestThemes.length === 0 ? (
-              <Empty>Nothing has beaten its baseline yet.</Empty>
-            ) : (
-              <PostList listId="best-themes" posts={bestThemes} {...rowProps} reload={load} />
-            )}
-          </Section>
-
-          <Section
-            id="most-viewed"
-            title="Most viewed"
-            timescale={windowLabel}
-            count={topViews.length}
-          >
-            {topViews.length === 0 ? (
-              <Empty>Nothing yet.</Empty>
-            ) : (
-              <PostList
-                listId="most-viewed"
-                posts={topViews}
-                variant="reach"
-                {...rowProps}
-                reload={load}
-              />
-            )}
-          </Section>
-
-          <Section
-            id="leaderboard"
-            title="Account leaderboard"
-            timescale={windowLabel}
-            count={scores.length}
-            subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
-          >
-            {scores.length === 0 ? (
-              <Empty>Nothing scored yet.</Empty>
-            ) : (
-              <ul className="divide-y divide-line">
-                {scores.map((a) => (
-                  <li key={a.brand_name} className="flex items-center gap-4 py-4">
-                    <span className="w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent">
-                      {a.total_score >= 100
-                        ? Math.round(a.total_score)
-                        : a.total_score.toFixed(1)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-baseline gap-x-2">
-                        <a
-                          href={brandPath(a.brand_name)}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(brandPath(a.brand_name));
-                          }}
-                          className="text-[15px] font-semibold hover:underline"
-                        >
-                          {a.brand_name}
-                        </a>
-                        <span className="text-xs text-dim">{a.brand_type}</span>
-                        <LabelTags labels={a.labels} />
-                      </span>
-                      <span className="mt-1 block text-[13px] text-dim">
-                        {a.posts} post{a.posts === 1 ? "" : "s"} ·{" "}
-                        {a.avg_multiple.toFixed(1)}× average ·{" "}
-                        {compact(a.total_views)} views
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </div>
-      )}
+      </div>
 
       {adminOpen && (
         <BrandAdmin
@@ -382,45 +411,38 @@ export default function Dashboard() {
           reload={load}
         />
       )}
-    </div>
+    </>
   );
 }
 
 function ScorePanel() {
   return (
-    <div className="max-w-prose space-y-2 text-sm leading-relaxed text-dim">
-          <p>
-            The multiple compares a post to what's normal for its own account.{" "}
-            <span className="font-serif text-ink">3×</span> means three times
-            the views of a typical post from that account, on that platform,
-            in that format.
-          </p>
-          <p>
-            Typical is the median of the account's recent posts — so a small
-            account's breakout isn't buried under a big account's ordinary
-            day. It measures unusualness, not quality: a{" "}
-            <span className="font-serif text-ink">60×</span> post on a quiet
-            account may still have fewer views than an ordinary post on a busy
-            one.
-          </p>
-          <p>
-            Posts we've paid to boost are excluded from the comparison, and an
-        account needs at least ten posts of history before anything is
-        scored.
+    <div className="note" style={{ maxWidth: "66ch" }}>
+      <p style={{ marginTop: 0 }}>
+        The multiple compares a post to what&rsquo;s normal for its own account.{" "}
+        <b>3&times;</b> means three times the views of a typical post from that
+        account, on that platform, in that format.
+      </p>
+      <p>
+        Typical is the median of the account&rsquo;s recent posts — so a small
+        account&rsquo;s breakout isn&rsquo;t buried under a big account&rsquo;s
+        ordinary day. It measures unusualness, not quality: a <b>60&times;</b>{" "}
+        post on a quiet account may still have fewer views than an ordinary post
+        on a busy one.
+      </p>
+      <p style={{ marginBottom: 0 }}>
+        Posts we&rsquo;ve paid to boost are excluded from the comparison, and an
+        account needs at least ten posts of history before anything is scored.
       </p>
     </div>
   );
 }
 
-
-
 /**
  * PostList with a Load more control: PAGE_SIZE rows, growing by PAGE_SIZE
  * up to PAGE_MAX — used by the Latest feeds.
  */
-function PaginatedPostList(
-  props: Parameters<typeof PostList>[0],
-) {
+function PaginatedPostList(props: Parameters<typeof PostList>[0]) {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const cap = Math.min(props.posts.length, PAGE_MAX);
   const shown = props.posts.slice(0, Math.min(visible, cap));
@@ -429,7 +451,8 @@ function PaginatedPostList(
       <PostList {...props} posts={shown} />
       {shown.length < cap && (
         <button
-          className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+          className="btn"
+          style={{ marginTop: 12 }}
           onClick={() => setVisible((v) => Math.min(v + PAGE_SIZE, cap))}
         >
           Load more ({cap - shown.length} more)
@@ -452,7 +475,7 @@ function PostList(props: {
   skipByBrand?: Map<string, number | null>;
 }) {
   return (
-    <ul className="divide-y divide-line">
+    <div>
       {props.posts.map((p) => {
         // Scoped per section — the same post can appear in Leading, Latest
         // and Best, and expanding it in one shouldn't expand it everywhere.
@@ -478,6 +501,6 @@ function PostList(props: {
           />
         );
       })}
-    </ul>
+    </div>
   );
 }

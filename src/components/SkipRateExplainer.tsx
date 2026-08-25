@@ -14,26 +14,27 @@ export function beatsIndustry(skipRate: number | null | undefined): boolean {
 }
 
 /**
- * Restrained marker for a reel that beat the industry median. A hairline
- * outline rather than a badge or colour block — it should read as a margin
- * note, not a rosette.
+ * Restrained marker for a reel that beat the industry median. In this system
+ * that's a bordered pill rather than a coloured badge.
  */
 export function SkipMarker({ skipRate }: { skipRate: number | null }) {
   if (!beatsIndustry(skipRate)) return null;
   return (
-    <span
-      title={`Beats the industry median of ${INDUSTRY_MEDIAN}%`}
-      className="ml-1 rounded-full border border-dim/40 px-1.5 py-px text-[10px] uppercase tracking-wider text-ink"
-    >
-      strong hook
-    </span>
+    <>
+      {" "}
+      <span
+        className="pill good"
+        title={`Beats the industry median of ${INDUSTRY_MEDIAN}%`}
+      >
+        strong hook
+      </span>
+    </>
   );
 }
 
 /**
  * The prose on its own, so a caller that groups several explainers into one
- * row can render the trigger and the panel separately — otherwise each
- * explainer traps its panel inside its own flex column.
+ * row can render the trigger and the panel separately.
  *
  * Internal only — the roster figures are comparative information the public
  * share pages must never carry. Those pages don't render skip rate at all.
@@ -43,34 +44,34 @@ export function SkipMarker({ skipRate }: { skipRate: number | null }) {
  */
 export function SkipRatePanel({ roster }: { roster: SkipRoster | null }) {
   return (
-    <div className="max-w-prose space-y-2 text-sm leading-relaxed text-dim">
-      <p>
-        Skip rate is the share of viewers who scrolled past in the first
-        three seconds. It measures the hook, and nothing else — a low skip
-        rate means the opening earned attention, not that the video was
-        good. Lower is better.
+    <div className="note" style={{ maxWidth: "66ch" }}>
+      <p style={{ marginTop: 0 }}>
+        Skip rate is the share of viewers who scrolled past in the first three
+        seconds. It measures the hook, and nothing else — a low skip rate means
+        the opening earned attention, not that the video was good. Lower is
+        better.
       </p>
       <p>
-        There's no published benchmark for music accounts. Industry-wide,
+        There&rsquo;s no published benchmark for music accounts. Industry-wide,
         aggregate data puts a typical reel between {INDUSTRY_LOW}% and{" "}
         {INDUSTRY_HIGH}%.
         {roster && (
           <>
-        {" "}
-        Across our roster the median is{" "}
-        <span className="text-ink">
-          {Math.round(roster.roster_median)}%
-        </span>
-        , with the best reel at {Math.round(roster.best_skip_rate)}% and
-        the worst at {Math.round(roster.worst_skip_rate)}%.
+            {" "}
+            Across our roster the median is{" "}
+            <b className="num">{Math.round(roster.roster_median)}%</b>, with the
+            best reel at <span className="num">{Math.round(roster.best_skip_rate)}%</span> and
+            the worst at <span className="num">{Math.round(roster.worst_skip_rate)}%</span>.
           </>
         )}
       </p>
       <p>
-        Compare against the account's own median rather than a fixed target
-        — audience and format shift it more than quality does.
+        Compare against the account&rsquo;s own median rather than a fixed
+        target — audience and format shift it more than quality does.
       </p>
-      <p>Instagram reels only. No other platform reports it.</p>
+      <p style={{ marginBottom: 0 }}>
+        Instagram reels only. No other platform reports it.
+      </p>
     </div>
   );
 }
@@ -78,24 +79,21 @@ export function SkipRatePanel({ roster }: { roster: SkipRoster | null }) {
 /** Standalone link + panel, used where the explainer stands on its own. */
 export default function SkipRateExplainer({
   roster,
-  className = "",
 }: {
   roster: SkipRoster | null;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={className}>
-      <button
-        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
-        onClick={() => setOpen((o) => !o)}
-      >
+    <div>
+      <button className="lnk" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         What is skip rate?
       </button>
       {open && (
-        <div className="mt-3">
+        <>
+          <hr className="r" />
           <SkipRatePanel roster={roster} />
-        </div>
+        </>
       )}
     </div>
   );

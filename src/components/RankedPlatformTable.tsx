@@ -37,17 +37,25 @@ function RankLines(props: {
   const showType = props.rankType !== null && props.totalType > 0;
   if (!showAll && !showType) return null;
   return (
-    <span className="mt-1 block text-[11px] leading-snug">
+    <span style={{ display: "block", marginTop: 3, fontSize: 11, lineHeight: 1.35 }}>
       {showAll && (
         <span
-          className={`block ${props.rankAll === 1 ? "text-ink" : "text-dim"}`}
+          style={{
+            display: "block",
+            color: props.rankAll === 1 ? "var(--ink)" : "var(--muted)",
+            fontWeight: props.rankAll === 1 ? 700 : 400,
+          }}
         >
           {ordinal(props.rankAll!)} of {props.totalAll} overall
         </span>
       )}
       {showType && (
         <span
-          className={`block ${props.rankType === 1 ? "text-ink" : "text-dim"}`}
+          style={{
+            display: "block",
+            color: props.rankType === 1 ? "var(--ink)" : "var(--muted)",
+            fontWeight: props.rankType === 1 ? 700 : 400,
+          }}
         >
           {ordinal(props.rankType!)} of {props.totalType}{" "}
           {cohortNoun(props.brandType)}
@@ -69,28 +77,28 @@ export default function RankedPlatformTable({
   if (rows.length === 0) return null;
   return (
     <>
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full max-w-3xl text-left text-sm">
+      <div className="scroll">
+        <table className="t">
           <thead>
-            <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
-              <th className="py-2 pr-4 font-medium"></th>
-              <th className="py-2 pr-4 font-medium">Posts</th>
-              <th className="py-2 pr-4 font-medium">Median views</th>
-              <th className="py-2 pr-4 font-medium">Median engagement</th>
-              <th className="py-2 pr-4 font-medium">Median completion</th>
-              <th className="py-2 font-medium">Median skip</th>
+            <tr>
+              <th></th>
+              <th>Posts</th>
+              <th>Median views</th>
+              <th>Median engagement</th>
+              <th>Median completion</th>
+              <th>Median skip</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody>
             {rows.map((r) => (
-              <tr key={`${r.network}-${r.content_type}`} className="align-top">
-                <td className="py-3 pr-4">
+              <tr key={`${r.network}-${r.content_type}`} style={{ verticalAlign: "top" }}>
+                <td>
                   {platformLabel(r.network, r.content_type)}
                 </td>
-                <td className="py-3 pr-4 font-serif">{r.posts}</td>
+                <td>{r.posts}</td>
 
-                <td className="py-3 pr-4">
-                  <span className="font-serif">
+                <td>
+                  <span>
                     {r.median_views !== null ? compact(r.median_views) : ""}
                   </span>
                   {r.median_views !== null && (
@@ -104,8 +112,8 @@ export default function RankedPlatformTable({
                   )}
                 </td>
 
-                <td className="py-3 pr-4">
-                  <span className="font-serif">
+                <td>
+                  <span>
                     {r.median_engagement_rate !== null
                       ? r.median_engagement_rate.toFixed(1)
                       : ""}
@@ -123,8 +131,8 @@ export default function RankedPlatformTable({
 
                 {/* Completion exists on Instagram reels only — blank elsewhere,
                     including its ranks. */}
-                <td className="py-3 pr-4">
-                  <span className="font-serif">
+                <td>
+                  <span>
                     {r.median_completion_pct !== null
                       ? `${Math.round(r.median_completion_pct)}%`
                       : ""}
@@ -141,15 +149,15 @@ export default function RankedPlatformTable({
                 </td>
 
                 {/* Skip rate is Instagram reels only, and has no ranks. */}
-                <td className="py-3">
+                <td>
                   {(() => {
                     const skip = skipByKey?.get(
                       `${r.brand_name}|${r.network}|${r.content_type}`,
                     );
                     if (skip == null) return null;
                     return (
-                      <span className="whitespace-nowrap">
-                        <span className="font-serif">{Math.round(skip)}%</span>
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        <span>{Math.round(skip)}%</span>
                         <SkipMarker skipRate={skip} />
                       </span>
                     );
@@ -160,7 +168,7 @@ export default function RankedPlatformTable({
           </tbody>
         </table>
       </div>
-      <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-dim">
+      <p className="note">
         Ranked against brands active on the same platform and format.
       </p>
     </>

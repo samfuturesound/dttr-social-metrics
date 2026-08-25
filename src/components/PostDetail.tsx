@@ -16,7 +16,7 @@ import {
 } from "../lib/types";
 
 const inputCls =
-  "border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
+  "f";
 
 export default function PostDetail(props: {
   post: FlaggedPost;
@@ -37,7 +37,7 @@ export default function PostDetail(props: {
 
   return (
     <div className="space-y-6 pb-8 pl-34 pr-2 text-sm max-sm:pl-0">
-      {err && <p className="text-accent">{err}</p>}
+      {err && <p className="err-line">{err}</p>}
       <Notes
         notes={props.notes}
         onAdd={(note) => run(() => addNote(post.external_id, note))}
@@ -61,7 +61,7 @@ export default function PostDetail(props: {
 
 function Heading({ children }: { children: string }) {
   return (
-    <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+    <h3 className="lab-mono">
       {children}
     </h3>
   );
@@ -82,7 +82,7 @@ function Notes(props: { notes: PostNote[]; onAdd: (note: string) => void }) {
       {props.notes.map((n) => (
         <p key={n.id} className="mb-1.5">
           {n.note}{" "}
-          <span className="text-xs text-dim">— {shortDate(n.created_at)}</span>
+          <span className="note">— {shortDate(n.created_at)}</span>
         </p>
       ))}
       <form onSubmit={submit} className="mt-1 flex items-end gap-3">
@@ -92,7 +92,7 @@ function Notes(props: { notes: PostNote[]; onAdd: (note: string) => void }) {
           placeholder="What made this land?"
           className={`flex-1 ${inputCls}`}
         />
-        <button className="text-[13px] text-dim underline underline-offset-2 hover:text-ink" type="submit">
+        <button className="lnk" type="submit">
           Add
         </button>
       </form>
@@ -140,9 +140,9 @@ function Boosts(props: {
         <p key={i.id} className="mb-1.5">
           {INTERVENTION_LABELS[i.kind] ?? i.kind} from {shortDate(i.started_on)}
           {i.spend !== null && ` · £${i.spend}`}
-          {i.notes && <span className="text-dim"> — {i.notes}</span>}{" "}
+          {i.notes && <span className="note"> — {i.notes}</span>}{" "}
           <button
-            className="text-xs text-dim underline underline-offset-2 hover:text-accent"
+            className="err-line"
             onClick={() => props.onRemove(i.id)}
           >
             remove
@@ -181,14 +181,14 @@ function Boosts(props: {
             className={`min-w-32 flex-1 ${inputCls}`}
           />
           <button
-            className="rounded-full bg-ink px-4 py-1 text-[13px] text-paper hover:opacity-90"
+            className="btn solid"
             type="submit"
           >
             Save
           </button>
           <button
             type="button"
-            className="text-[13px] text-dim hover:text-ink"
+            className="btn x"
             onClick={() => setShowForm(false)}
           >
             Cancel
@@ -196,7 +196,7 @@ function Boosts(props: {
         </form>
       ) : (
         <button
-          className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+          className="lnk"
           onClick={() => setShowForm(true)}
         >
           Mark as boosted / clipped
@@ -241,12 +241,12 @@ function Streaming(props: {
           {c.pct_active !== null && `, ${Math.round(c.pct_active)}% active`}
         </p>
       ))}
-      <p className="mb-2 max-w-prose text-[13px] leading-relaxed text-dim">
+      <p className="note">
         Spotify for Artists → Music → Songs → click the track. Set the range
         to 28 days and screenshot the full song page, making sure the Source
         of Streams breakdown is visible.
       </p>
-      <p className="mb-2 max-w-prose text-[13px] leading-relaxed text-dim">
+      <p className="note">
         Take it about a week after the post — streams lag social by several
         days.
       </p>
@@ -258,7 +258,7 @@ function Streaming(props: {
         onChange={(e) => onFile(e.target.files?.[0])}
       />
       <button
-        className="text-[13px] text-dim underline underline-offset-2 hover:text-ink disabled:opacity-50"
+        className="lnk"
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >

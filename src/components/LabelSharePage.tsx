@@ -7,7 +7,8 @@ import {
 import { age, compact, multiple, shortDate } from "../lib/format";
 import type { LabelShareSummary, SharePost } from "../lib/types";
 import { Section, Empty } from "./Section";
-import { BrandRow, PlatformTable, Stat, platformLabel } from "./BrandRow";
+import { BrandRow, PlatformTable, platformLabel } from "./BrandRow";
+import { ShareBar, TopStripe } from "./Chrome";
 import EngagementExplainer from "./EngagementExplainer";
 
 const QUARTER_DAYS = 92;
@@ -152,81 +153,112 @@ export default function LabelSharePage({ token }: { token: string }) {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <p className="text-sm text-accent">{error}</p>
-      </div>
+      <>
+        <TopStripe />
+        <ShareBar />
+        <div className="wrap">
+          <div className="ratewarn" style={{ marginTop: 24 }}>
+            <h4>Could not load</h4>
+            <p>{error}</p>
+          </div>
+        </div>
+      </>
     );
   }
 
   if (posts === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <p className="text-sm text-dim">Loading…</p>
-      </div>
+      <>
+        <TopStripe />
+        <ShareBar />
+        <div className="wrap">
+          <div className="empty" style={{ marginTop: 24 }}>Loading&hellip;</div>
+        </div>
+      </>
     );
   }
 
   // Unknown, revoked or expired token: every function returns nothing.
   if (posts.length === 0 && summary.length === 0 && !labelName) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="max-w-sm text-center">
-          <h1 className="font-serif text-3xl">This link is no longer active</h1>
-          <p className="mt-3 text-sm leading-relaxed text-dim">
-            It may have been revoked or reached its expiry date. Ask whoever
-            sent it for a new one.
-          </p>
+      <>
+        <TopStripe />
+        <ShareBar />
+        <div className="wrap">
+          <div className="card" style={{ marginTop: 24, maxWidth: 460 }}>
+            <div className="eyebrow">
+              <span>Link inactive</span>
+            </div>
+            <h2 style={{ fontSize: 22 }}>This link is no longer active</h2>
+            <p className="note">
+              It may have been revoked or reached its expiry date. Ask whoever
+              sent it for a new one.
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   const meta = (p: SharePost, tail: string) => `${p.brand_name} · ${tail}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
-      <header className="mb-12">
-        <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-          Social performance
-        </p>
-        <h1 className="mt-1 font-serif text-4xl tracking-tight">
-          {labelName ?? "Label"}
-        </h1>
-        <p className="mt-3 max-w-prose text-sm leading-relaxed text-dim">
-          These are the figures for {labelName ?? "this label"}'s accounts.
-          Every post is measured against its own account's typical performance,
-          on the same platform and in the same format.
-        </p>
+    <>
+      <TopStripe />
+      <ShareBar subtitle="Social performance" />
 
-        <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
-          <Stat value={String(byBrand.length)} label="Brands" />
-          <Stat value={String(totalPosts)} label="Posts" />
-          <Stat value={compact(totalViews)} label="Views" />
+      <div className="wrap">
+        <div className="pagehead">
+          <h1>{labelName ?? "Label"}</h1>
+          <p className="sub">
+            These are the figures for {labelName ?? "this label"}&rsquo;s
+            accounts. Every post is measured against its own account&rsquo;s
+            typical performance, on the same platform and in the same format.
+          </p>
         </div>
 
-        {byBrand.length > 0 && (
-          <div className="mt-8 space-y-8">
-            {byBrand.map(([brand, rows]) => (
-              <div key={brand}>
-                <h2 className="font-serif text-xl">{brand}</h2>
-                <PlatformTable rows={rows} compact={compact} />
-              </div>
-            ))}
+        <div className="kpis">
+          <div className="kpi">
+            <div className="k">Accounts</div>
+            <div className="v">{byBrand.length}</div>
+            <div className="m">on this label</div>
           </div>
-        )}
+          <div className="kpi">
+            <div className="k">Posts</div>
+            <div className="v">{totalPosts}</div>
+            <div className="m">since measurement began</div>
+          </div>
+          <div className="kpi">
+            <div className="k">Views</div>
+            <div className="v">{compact(totalViews)}</div>
+            <div className="m">all recorded posts</div>
+          </div>
+          <div className="kpi">
+            <div className="k">Platforms</div>
+            <div className="v">{new Set(summary.map((s) => s.network)).size}</div>
+            <div className="m">measured separately</div>
+          </div>
+        </div>
 
-        <p className="mt-6 max-w-prose text-[13px] leading-relaxed text-dim">
-          "All time" here means since measurements began — not the accounts'
-          whole life.
+        {byBrand.length > 0 &&
+          byBrand.map(([brand, rows]) => (
+            <div className="card" key={brand}>
+              <div className="eyebrow">
+                <span>{brand}</span>
+              </div>
+              <PlatformTable rows={rows} compact={compact} />
+            </div>
+          ))}
+
+        <p className="note" style={{ marginBottom: 14 }}>
+          &ldquo;All time&rdquo; here means since measurements began — not the
+          accounts&rsquo; whole life.
         </p>
-      </header>
 
       {posts.length === 0 ? (
-        <p className="py-16 text-center text-sm text-dim">
-          No posts recorded for these accounts yet.
-        </p>
+        <div className="empty">No posts recorded for these accounts yet.</div>
       ) : (
-        <div className="space-y-12">
+        <>
           <Section
             id={`labelshare-leading-${token}`}
             title="Leading posts"
@@ -238,7 +270,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             {leading.length === 0 ? (
               <Empty>Nothing above typical this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {leading.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -250,7 +282,7 @@ export default function LabelSharePage({ token }: { token: string }) {
                     )}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -260,7 +292,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             count={latest.length}
             subtitle="Everything published, newest first."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {latest.slice(0, Math.min(latestVisible, PAGE_MAX)).map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -272,10 +304,11 @@ export default function LabelSharePage({ token }: { token: string }) {
                   )}
                 />
               ))}
-            </ul>
+            </div>
             {latestVisible < Math.min(latest.length, PAGE_MAX) && (
               <button
-                className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+                className="btn"
+                style={{ marginTop: 12 }}
                 onClick={() =>
                   setLatestVisible((v) => Math.min(v + PAGE_SIZE, PAGE_MAX))
                 }
@@ -293,7 +326,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             count={mostViewed.length}
             subtitle="Raw reach — biggest posts regardless of how normal that is for the account."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {mostViewed.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -305,7 +338,7 @@ export default function LabelSharePage({ token }: { token: string }) {
                   )}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
           <Section
@@ -315,7 +348,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             count={bestScoring.length}
             subtitle="Furthest above the account's own typical performance."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {bestScoring.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -327,13 +360,13 @@ export default function LabelSharePage({ token }: { token: string }) {
                   )}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
-          <div className="space-y-4 pt-4">
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-              Engagement
-            </h2>
+          <div className="card">
+            <div className="eyebrow">
+              <span>Engagement</span>
+            </div>
             <EngagementExplainer />
           </div>
 
@@ -347,7 +380,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             {bestEngagement.length === 0 ? (
               <Empty>Nothing above the norm this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {bestEngagement.map((p) => {
                   const med = medEngFor(p);
                   return (
@@ -362,7 +395,7 @@ export default function LabelSharePage({ token }: { token: string }) {
                     />
                   );
                 })}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -376,13 +409,13 @@ export default function LabelSharePage({ token }: { token: string }) {
             {topEngRateGroups.length === 0 ? (
               <Empty>No engagement data yet.</Empty>
             ) : (
-              <div className="space-y-6">
+              <div>
                 {topEngRateGroups.map((g) => (
-                  <div key={g.label}>
-                    <h4 className="pt-4 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
+                  <div key={g.label} style={{ marginBottom: 18 }}>
+                    <div className="lab-mono" style={{ marginBottom: 4 }}>
                       {g.label}
-                    </h4>
-                    <ul className="divide-y divide-line">
+                    </div>
+                    <div>
                       {g.posts.map((p) => {
                         const med = medEngFor(p);
                         return (
@@ -397,7 +430,7 @@ export default function LabelSharePage({ token }: { token: string }) {
                           />
                         );
                       })}
-                    </ul>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -414,7 +447,7 @@ export default function LabelSharePage({ token }: { token: string }) {
             {mostWatched.length === 0 ? (
               <Empty>No video duration data for these accounts.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {mostWatched.map((p) => {
                   const med = medCompFor(p);
                   return (
@@ -429,11 +462,12 @@ export default function LabelSharePage({ token }: { token: string }) {
                     />
                   );
                 })}
-              </ul>
+              </div>
             )}
           </Section>
-        </div>
+        </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

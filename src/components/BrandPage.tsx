@@ -17,6 +17,7 @@ import type {
 import { Section, Empty } from "./Section";
 import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
+import { AppBar, TopStripe } from "./Chrome";
 import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
 import ShareManager from "./ShareManager";
@@ -144,66 +145,68 @@ export default function BrandPage({ brand }: { brand: string }) {
     `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 sm:px-10">
-      <header className="mb-12">
-        <a
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/");
-          }}
-          className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
-        >
-          ← Board
-        </a>
-        <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-          {summary?.brand_type === "theme" ? "Theme account" : "Artist"}
-        </p>
-        <h1 className="mt-1 font-serif text-4xl tracking-tight">{brand}</h1>
-        {summary?.labels && summary.labels.length > 0 && (
-          <div className="mt-3">
-            <LabelTags labels={summary.labels} />
-          </div>
-        )}
+    <>
+      <TopStripe />
+      <AppBar current="brand" />
+
+      <div className="wrap">
+        <div className="pagehead">
+          <h1>{brand}</h1>
+          <p className="sub">
+            {summary?.brand_type === "theme" ? "Theme account" : "Artist"}
+            {summary?.labels && summary.labels.length > 0 && (
+              <> · <LabelTags labels={summary.labels} /></>
+            )}
+          </p>
+        </div>
 
         {summary && (
           <>
-            <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
-              <Stat value={String(summary.posts_all_time)} label="Posts" />
-              <Stat value={compact(summary.views_all_time)} label="Views" />
+            <div className="kpis">
+              <Stat value={String(summary.posts_all_time)} label="Posts" meta="all time" />
+              <Stat value={compact(summary.views_all_time)} label="Views" meta="all time" />
               <Stat
                 value={`${summary.posts_3m} · ${compact(summary.views_3m)}`}
-                label="Posts · views, 3m"
+                label="Posts · views"
+                meta="last 3 months"
               />
-              {summary.first_post && summary.last_post && (
-                <Stat
-                  value={`${monthYear(summary.first_post)} – ${monthYear(summary.last_post)}`}
-                  label="First – last post"
-                />
-              )}
+              <Stat
+                value={
+                  summary.first_post && summary.last_post
+                    ? `${monthYear(summary.first_post)} – ${monthYear(summary.last_post)}`
+                    : "—"
+                }
+                label="First – last post"
+              />
             </div>
 
-            <RankedPlatformTable rows={platforms} skipByKey={skipByKey} />
-            <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-dim">
-              "All time" here means since measurements began — first post is
-              stated above — not the account's whole life.
-            </p>
-            <SkipRateExplainer roster={skipRoster} className="mt-4" />
+            <div className="card">
+              <div className="eyebrow">
+                <span>Per platform, with roster position</span>
+              </div>
+              <RankedPlatformTable rows={platforms} skipByKey={skipByKey} />
+              <p className="note">
+                &ldquo;All time&rdquo; here means since measurements began —
+                first post is stated above — not the account&rsquo;s whole life.
+              </p>
+              <hr className="r" />
+              <SkipRateExplainer roster={skipRoster} />
+            </div>
+
             <ShareManager
               brandId={summary.brand_id}
               brandName={summary.brand_name}
             />
           </>
         )}
-      </header>
 
-      {error && <p className="mb-8 text-sm text-accent">{error}</p>}
+      {error && <p className="err-line">{error}</p>}
       {posts === null && !error && (
-        <p className="py-24 text-center text-sm text-dim">Loading…</p>
+        <p className="empty">Loading…</p>
       )}
 
       {posts !== null && (
-        <div className="space-y-12">
+        <>
           <Section
             id="brand-leading"
             title="Leading posts"
@@ -215,7 +218,7 @@ export default function BrandPage({ brand }: { brand: string }) {
             {leading.length === 0 ? (
               <Empty>Nothing above typical this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {leading.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -224,7 +227,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                     meta={viewsMeta(p)}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -238,7 +241,7 @@ export default function BrandPage({ brand }: { brand: string }) {
               <Empty>Nothing here yet.</Empty>
             ) : (
               <>
-                <ul className="divide-y divide-line">
+                <div>
                   {posts
                     .slice(0, Math.min(latestVisible, PAGE_MAX))
                     .map((p) => (
@@ -249,10 +252,10 @@ export default function BrandPage({ brand }: { brand: string }) {
                         meta={`${age(p.age_days)} old · ${compact(p.views)} views vs ${compact(p.median_views)} median`}
                       />
                     ))}
-                </ul>
+                </div>
                 {latestVisible < Math.min(posts.length, PAGE_MAX) && (
                   <button
-                    className="mt-4 text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+                    className="lnk"
                     onClick={() =>
                       setLatestVisible((v) => Math.min(v + PAGE_SIZE, PAGE_MAX))
                     }
@@ -272,7 +275,7 @@ export default function BrandPage({ brand }: { brand: string }) {
             count={mostViewed.length}
             subtitle="Raw reach — biggest posts regardless of how normal that is for this account."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {mostViewed.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -281,7 +284,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                   meta={`${shortDate(p.published_at)} · ${multiple(p.views_multiple)} its baseline`}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
           <Section
@@ -291,7 +294,7 @@ export default function BrandPage({ brand }: { brand: string }) {
             count={bestScoring.length}
             subtitle="Furthest above this account's own typical performance."
           >
-            <ul className="divide-y divide-line">
+            <div>
               {bestScoring.map((p) => (
                 <BrandRow
                   key={p.external_id}
@@ -300,11 +303,11 @@ export default function BrandPage({ brand }: { brand: string }) {
                   meta={viewsMeta(p)}
                 />
               ))}
-            </ul>
+            </div>
           </Section>
 
-          <div className="space-y-4 pt-4">
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
+          <div>
+            <h2 className="lab-mono">
               Engagement
             </h2>
             <EngagementExplainer />
@@ -320,7 +323,7 @@ export default function BrandPage({ brand }: { brand: string }) {
             {bestEngagement.length === 0 ? (
               <Empty>Nothing above the account's norm this quarter.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {bestEngagement.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -329,7 +332,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                     meta={`${shortDate(p.published_at)} · ${platformLabel(p.network, p.content_type)} · ${p.engagement_rate?.toFixed(1)} per 100 views${p.median_engagement_rate !== null ? ` vs ${p.median_engagement_rate.toFixed(1)} median` : ""}`}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
 
@@ -343,13 +346,13 @@ export default function BrandPage({ brand }: { brand: string }) {
             {topEngRateGroups.length === 0 ? (
               <Empty>No engagement data yet.</Empty>
             ) : (
-              <div className="space-y-6">
+              <div>
                 {topEngRateGroups.map((g) => (
                   <div key={g.label}>
-                    <h4 className="pt-4 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
+                    <h4 className="lab-mono">
                       {g.label}
                     </h4>
-                    <ul className="divide-y divide-line">
+                    <div>
                       {g.posts.map((p) => (
                         <BrandRow
                           key={p.external_id}
@@ -358,7 +361,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                           meta={`${shortDate(p.published_at)} · ${compact(p.views)} views${p.median_engagement_rate !== null ? ` · median ${p.median_engagement_rate.toFixed(1)}` : ""}`}
                         />
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -375,7 +378,7 @@ export default function BrandPage({ brand }: { brand: string }) {
             {mostWatched.length === 0 ? (
               <Empty>No video duration data for this account.</Empty>
             ) : (
-              <ul className="divide-y divide-line">
+              <div>
                 {mostWatched.map((p) => (
                   <BrandRow
                     key={p.external_id}
@@ -384,11 +387,12 @@ export default function BrandPage({ brand }: { brand: string }) {
                     meta={`${shortDate(p.published_at)} · ${p.avg_watch_seconds?.toFixed(1) ?? "?"}s of ${p.duration_seconds ?? "?"}s${p.median_completion_pct !== null ? ` · account median ${Math.round(p.median_completion_pct)}%` : ""}`}
                   />
                 ))}
-              </ul>
+              </div>
             )}
           </Section>
-        </div>
+        </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { age, compact, multiple, shortDate } from "../lib/format";
+import { age, compact, multiple } from "../lib/format";
 import type {
   FlaggedPost,
   Intervention,
@@ -7,20 +7,16 @@ import type {
 } from "../lib/types";
 import PostDetail from "./PostDetail";
 import { brandPath, navigate } from "../lib/router";
-import { Thumb } from "./BrandRow";
+import { OpenPost, PlatformPill, Thumb } from "./BrandRow";
 import { SkipMarker } from "./SkipRateExplainer";
-
-const NETWORK_LABEL: Record<string, string> = {
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  facebook: "Facebook",
-};
 
 /**
  * variant "score" (default): the multiple leads — Leading / Best Performing.
  * variant "feed": recency leads, the multiple sits quiet on the right.
  * variant "reach": raw views lead — Most Viewed; the multiple is meta.
+ *
+ * Rendered as a fragment so consecutive rows stay adjacent siblings and the
+ * theme's `.post + .post` rule draws the divider.
  */
 export default function PostRow(props: {
   post: FlaggedPost;
@@ -40,80 +36,63 @@ export default function PostRow(props: {
   const isReel = post.content_type === "reels";
   const noteCount = props.notes.length;
 
+  const headline = reach ? compact(post.views) : multiple(post.views_multiple);
+
   return (
-    <li>
-      <div className="flex w-full items-center gap-4 py-4">
+    <>
+      <div className={`post${post.is_assisted ? " assisted" : ""}`}>
         <Thumb url={post.thumbnail_url} />
 
-        {/* Headline number: the multiple (score) or raw views (reach) */}
-        {!feed && (
-          <span
-            className={
-              reach
-                ? "w-18 shrink-0 text-right font-serif text-2xl leading-none text-accent"
-                : post.is_assisted
-                  ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
-                  : "w-18 shrink-0 text-right font-serif text-[2rem] leading-none text-accent"
-            }
-          >
-            {reach ? compact(post.views) : multiple(post.views_multiple)}
-          </span>
-        )}
-
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-baseline gap-x-2">
+        <div className="meta">
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <a
+              className="brand"
               href={brandPath(post.brand_name)}
               onClick={(e) => {
                 e.preventDefault();
                 navigate(brandPath(post.brand_name));
               }}
-              className="text-[15px] font-semibold hover:underline"
+              style={{ color: "inherit", textDecoration: "none" }}
             >
               {post.brand_name}
             </a>
-            <span className="text-xs text-dim">
-              {NETWORK_LABEL[post.network] ?? post.network}{" "}
-              {post.content_type === "posts"
-                ? "post"
-                : post.content_type.replace(/s$/, "")}
-            </span>
-            {post.is_assisted && post.assisted_from && (
-              <span className="text-xs italic text-dim">
-                assisted from {shortDate(post.assisted_from)}
-              </span>
-            )}
-          </span>
+            <PlatformPill network={post.network} contentType={post.content_type} />
+            {post.is_assisted && <span className="tag">Assisted</span>}
+          </div>
+
           {post.caption && (
-            <span className="mt-0.5 block truncate text-sm text-dim">
+            <div
+              className="when"
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
               {post.caption}
-            </span>
+            </div>
           )}
-          <span className="mt-1 block text-[13px] text-dim">
-            <span className={feed ? "text-ink" : undefined}>
+
+          <div className="when">
+            <span style={feed ? { color: "var(--ink)", fontWeight: 500 } : undefined}>
               {age(post.age_days)} old
             </span>
             {reach ? (
               <> · {multiple(post.views_multiple)} its baseline</>
             ) : (
               <>
-                {" "}
-                · {compact(post.views)} views vs {compact(post.median_views)}{" "}
-                median
+                {" · "}
+                <span className="num">{compact(post.views)}</span> views vs{" "}
+                <span className="num">{compact(post.median_views)}</span> median
               </>
             )}
             {isReel &&
               (post.skip_rate !== null || post.avg_watch_seconds !== null) && (
-                <span className="text-ink">
+                <>
                   {" · "}
                   {post.skip_rate !== null && (
                     <>
-                      skip {Math.round(post.skip_rate)}%
+                      <span style={{ color: "var(--ink)", fontWeight: 500 }}>
+                        skip {Math.round(post.skip_rate)}%
+                      </span>
                       {props.medianSkip != null && (
-                        <span className="text-dim">
-                          {" "}
-                          vs {Math.round(props.medianSkip)}% median
-                        </span>
+                        <> vs {Math.round(props.medianSkip)}% median</>
                       )}
                       <SkipMarker skipRate={post.skip_rate} />
                     </>
@@ -123,49 +102,50 @@ export default function PostRow(props: {
                     " · "}
                   {post.avg_watch_seconds !== null &&
                     `${post.avg_watch_seconds.toFixed(1)}s watch`}
-                </span>
+                </>
               )}
-            {" · "}
-            <button
-              className="underline underline-offset-2 hover:text-ink"
-              onClick={props.onToggle}
-              aria-expanded={open}
-            >
+          </div>
+
+          <div style={{ marginTop: 8 }}>
+            <button className="lnk" onClick={props.onToggle} aria-expanded={open}>
               Notes{noteCount > 0 ? ` (${noteCount})` : ""}
             </button>
-          </span>
-        </span>
+          </div>
+        </div>
 
-        {feed && (
-          <span
-            className={
-              post.is_assisted
-                ? "shrink-0 self-center font-serif text-sm italic text-dim/70"
-                : "shrink-0 self-center font-serif text-base text-dim"
-            }
+        {feed ? (
+          <div
+            className="num"
+            style={{
+              flexShrink: 0,
+              alignSelf: "center",
+              fontWeight: 700,
+              color: "var(--muted)",
+            }}
           >
             {multiple(post.views_multiple)}
-          </span>
+          </div>
+        ) : (
+          <div className="mult" style={{ flexShrink: 0, textAlign: "right" }}>
+            {headline}
+            {reach && <small>views</small>}
+          </div>
         )}
 
-        {post.permalink && (
-          <a
-            href={post.permalink}
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 self-center p-1 text-dim/70 hover:text-ink"
-            title="Open post"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-        )}
+        <OpenPost href={post.permalink} />
       </div>
 
-      {open && <PostDetail {...props} />}
-    </li>
+      {open && (
+        <div
+          style={{
+            borderTop: "2px solid var(--line)",
+            paddingTop: 14,
+            marginBottom: 14,
+          }}
+        >
+          <PostDetail {...props} />
+        </div>
+      )}
+    </>
   );
 }

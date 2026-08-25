@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { sharedLogin } from "../lib/supabase";
+import { Logo } from "./Chrome";
 
 export default function Login() {
   const [password, setPassword] = useState("");
@@ -19,12 +20,13 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="w-full max-w-xs text-center">
-        <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-dim">
-          Dance to the Radio
-        </p>
-        <h1 className="mt-1 font-serif text-3xl">Social</h1>
+    <div className="gate">
+      <form onSubmit={submit}>
+        <div style={{ marginBottom: 16 }}>
+          <Logo size={44} />
+        </div>
+        <span className="stamp">Future Sound · Dance to the Radio</span>
+        <h1>Social Metrics</h1>
         <input
           type="password"
           required
@@ -33,16 +35,15 @@ export default function Login() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-10 w-full border-b border-line bg-transparent pb-2 text-center text-lg outline-none placeholder:text-dim/60 focus:border-ink"
         />
-        {error && <p className="mt-4 text-sm text-accent">{error}</p>}
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-8 w-full rounded-full bg-ink py-2.5 text-sm font-medium text-paper hover:opacity-90 disabled:opacity-50"
-        >
+        {error && <p className="err">{error}</p>}
+        <button type="submit" className="btn solid" disabled={busy}>
           {busy ? "One moment…" : "Enter"}
         </button>
+        <p className="foot">
+          Internal tool. One shared password, checked server-side. Nothing here
+          is public.
+        </p>
       </form>
     </div>
   );

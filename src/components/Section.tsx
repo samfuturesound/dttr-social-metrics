@@ -15,9 +15,15 @@ export function useCollapse(id: string, defaultOpen: boolean) {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="pt-5 text-sm text-dim">{children}</p>;
+  return <div className="empty">{children}</div>;
 }
 
+/**
+ * Collapsible section, rendered as a native <details> so keyboard and
+ * screen-reader behaviour comes for free. Open state is still persisted per
+ * section id, which is why `open` is controlled rather than left to the
+ * element.
+ */
 export function Section(props: {
   id: string;
   title: string;
@@ -29,31 +35,27 @@ export function Section(props: {
 }) {
   const [open, toggle] = useCollapse(props.id, props.defaultOpen ?? false);
   return (
-    <section>
-      <button
-        className="group flex w-full items-baseline justify-between border-b border-line pb-2 text-left"
-        onClick={toggle}
-        aria-expanded={open}
-      >
-        <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-dim group-hover:text-ink">
-          {props.title}
-          {props.timescale && (
-            <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-dim/70">
-              ({props.timescale})
-            </span>
-          )}
-          <span className="ml-2 font-normal text-dim/70">{props.count}</span>
-        </span>
-        <span className="font-serif text-sm leading-none text-dim/70 group-hover:text-ink">
-          {open ? "–" : "+"}
-        </span>
-      </button>
-      {open && props.subtitle && (
-        <p className="max-w-prose pt-3 text-[13px] leading-relaxed text-dim">
-          {props.subtitle}
-        </p>
-      )}
-      {open && props.children}
-    </section>
+    <details
+      className="sect"
+      open={open}
+      onToggle={(e) => {
+        // Only react to a real user toggle, not React re-syncing the attribute.
+        if ((e.currentTarget as HTMLDetailsElement).open !== open) toggle();
+      }}
+    >
+      <summary>
+        <span>{props.title}</span>
+        {props.timescale && (
+          <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
+            {props.timescale}
+          </span>
+        )}
+        <span className="count num">{props.count}</span>
+      </summary>
+      <div className="body">
+        {props.subtitle && <p className="note" style={{ marginTop: 0 }}>{props.subtitle}</p>}
+        {props.children}
+      </div>
+    </details>
   );
 }

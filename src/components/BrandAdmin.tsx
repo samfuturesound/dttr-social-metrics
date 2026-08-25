@@ -4,7 +4,7 @@ import { brandPath, navigate } from "../lib/router";
 import type { Brand, Label } from "../lib/types";
 
 const inputCls =
-  "w-full border-b border-line bg-transparent pb-1 text-sm outline-none placeholder:text-dim/60 focus:border-ink";
+  "f";
 
 export default function BrandAdmin(props: {
   brands: Brand[];
@@ -58,30 +58,30 @@ export default function BrandAdmin(props: {
 
   return (
     <div
-      className="fixed inset-0 z-10 flex justify-end bg-ink/20"
+      style={{position:"fixed",inset:0,zIndex:10,display:"flex",justifyContent:"flex-end",background:"rgba(26,28,34,0.28)"}}
       onClick={props.onClose}
     >
       <div
-        className="h-full w-full max-w-md overflow-y-auto border-l border-line bg-paper px-7 py-8"
+        style={{height:"100%",width:"100%",maxWidth:440,overflowY:"auto",borderLeft:"2px solid var(--line)",background:"var(--page)",padding:"20px"}}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-baseline justify-between">
-          <h2 className="font-serif text-2xl">Brands</h2>
+          <h2 style={{fontSize:22}}>Brands</h2>
           <button
-            className="text-[13px] text-dim hover:text-ink"
+            className="btn x"
             onClick={props.onClose}
           >
             Close
           </button>
         </div>
 
-        {err && <p className="mb-4 text-sm text-accent">{err}</p>}
+        {err && <p className="err-line">{err}</p>}
 
-        <ul className="mb-10 divide-y divide-line">
+        <div style={{marginBottom:24}}>
           {props.brands.map((b) => (
             <li key={b.id} className="py-3 text-sm">
               <div className="flex items-baseline justify-between">
-                <span className={b.active ? "" : "text-dim line-through"}>
+                <span style={b.active ? undefined : {color:"var(--muted)",textDecoration:"line-through"}}>
                   <a
                     href={brandPath(b.name)}
                     onClick={(e) => {
@@ -93,12 +93,12 @@ export default function BrandAdmin(props: {
                   >
                     {b.name}
                   </a>
-                  <span className="ml-2 text-xs text-dim">
+                  <span className="note" style={{marginTop:0}}>
                     {b.brand_type} · {b.metricool_blog_id}
                   </span>
                 </span>
                 <button
-                  className="text-xs text-dim underline underline-offset-2 hover:text-ink"
+                  className="lnk"
                   onClick={() => run(() => setBrandActive(b.id, !b.active))}
                 >
                   {b.active ? "deactivate" : "activate"}
@@ -113,7 +113,7 @@ export default function BrandAdmin(props: {
                     return (
                       <label
                         key={l.label_id}
-                        className={`flex items-center gap-1.5 text-xs ${on ? "text-ink" : "text-dim"}`}
+                        style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:on?"var(--ink)":"var(--muted)"}}
                       >
                         <input
                           type="checkbox"
@@ -132,10 +132,10 @@ export default function BrandAdmin(props: {
               )}
             </li>
           ))}
-        </ul>
+        </div>
 
         <div className="mb-10">
-          <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+          <h3 className="lab-mono">
             Labels
           </h3>
           {showNewLabel ? (
@@ -159,13 +159,13 @@ export default function BrandAdmin(props: {
               />
               <button
                 type="submit"
-                className="shrink-0 rounded-full bg-ink px-4 py-1 text-[13px] text-paper hover:opacity-90"
+                className="btn solid"
               >
                 Add
               </button>
               <button
                 type="button"
-                className="shrink-0 text-[13px] text-dim hover:text-ink"
+                className="btn x"
                 onClick={() => setShowNewLabel(false)}
               >
                 Cancel
@@ -173,7 +173,7 @@ export default function BrandAdmin(props: {
             </form>
           ) : (
             <button
-              className="text-[13px] text-dim underline underline-offset-2 hover:text-ink"
+              className="lnk"
               onClick={() => setShowNewLabel(true)}
             >
               New label
@@ -181,10 +181,10 @@ export default function BrandAdmin(props: {
           )}
         </div>
 
-        <h3 className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-dim">
+        <h3 className="lab-mono">
           Add brand
         </h3>
-        <form onSubmit={submit} noValidate className="space-y-4">
+        <form onSubmit={submit} noValidate>
           <div>
             <input
               value={name}
@@ -193,7 +193,7 @@ export default function BrandAdmin(props: {
               className={inputCls}
             />
             {fieldErr.name && (
-              <p className="mt-1.5 text-[13px] text-accent">{fieldErr.name}</p>
+              <p className="err-line">{fieldErr.name}</p>
             )}
           </div>
           <div>
@@ -204,12 +204,12 @@ export default function BrandAdmin(props: {
               inputMode="numeric"
               className={inputCls}
             />
-            <p className="mt-1.5 text-[13px] leading-relaxed text-dim">
+            <p className="note">
               Open the brand in Metricool — it's the number after{" "}
               <span className="font-medium">blogId=</span> in the URL.
             </p>
             {fieldErr.blogId && (
-              <p className="mt-1 text-[13px] text-accent">{fieldErr.blogId}</p>
+              <p className="err-line">{fieldErr.blogId}</p>
             )}
           </div>
           <div className="flex gap-4">
@@ -236,7 +236,7 @@ export default function BrandAdmin(props: {
           />
           <button
             type="submit"
-            className="rounded-full bg-ink px-5 py-1.5 text-[13px] text-paper hover:opacity-90"
+            className="btn solid"
           >
             Add
           </button>

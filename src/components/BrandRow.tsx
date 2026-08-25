@@ -15,20 +15,33 @@ export function platformLabel(network: string, contentType: string): string {
 }
 
 /**
- * Post image, Metricool-grid style. Instagram CDN URLs carry expiry tokens
- * and start 404ing after a while, so a failed load swaps to a neutral tile
- * of the same size — never a broken-image glyph, never a layout shift.
+ * Platform identity pill. The theme's accent triples are bg + text + border
+ * together — a tint without its border reads as a mistake in this system, so
+ * .pill always carries a .plat-* class rather than a bare colour.
+ */
+export function PlatformPill({
+  network,
+  contentType,
+}: {
+  network: string;
+  contentType?: string;
+}) {
+  const known = ["tiktok", "instagram", "youtube", "spotify"].includes(network);
+  return (
+    <span className={`pill${known ? ` plat-${network}` : ""}`}>
+      {contentType ? platformLabel(network, contentType) : NETWORK_LABEL[network] ?? network}
+    </span>
+  );
+}
+
+/**
+ * Post image. Instagram CDN URLs carry expiry tokens and start 404ing after a
+ * while, so a failed load swaps to a neutral tile of the same size — never a
+ * broken-image glyph, never a layout shift.
  */
 export function Thumb({ url }: { url: string | null }) {
   const [failed, setFailed] = useState(false);
-  if (!url || failed) {
-    return (
-      <span
-        aria-hidden
-        className="h-12 w-12 shrink-0 self-center rounded-sm bg-line"
-      />
-    );
-  }
+  if (!url || failed) return <span aria-hidden className="thumb" />;
   return (
     <img
       src={url}
@@ -36,8 +49,28 @@ export function Thumb({ url }: { url: string | null }) {
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
-      className="h-12 w-12 shrink-0 self-center rounded-sm object-cover"
+      className="thumb"
     />
+  );
+}
+
+export function OpenPost({ href }: { href: string | null }) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title="Open post"
+      className="btn x"
+      style={{ flexShrink: 0, alignSelf: "center", lineHeight: 0 }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </svg>
+    </a>
   );
 }
 
@@ -60,64 +93,51 @@ export function BrandRow(props: {
     post.caption?.trim() ||
     `${NETWORK_LABEL[post.network] ?? post.network} ${post.content_type}`;
   return (
-    <li className="flex w-full items-center gap-4 py-4">
+    <div className={`post${post.is_assisted ? " assisted" : ""}`}>
       <Thumb url={post.thumbnail_url} />
-      {props.headline !== undefined && (
-        <span
-          className={
-            post.is_assisted
-              ? "w-18 shrink-0 text-right font-serif text-xl text-dim"
-              : "w-18 shrink-0 text-right font-serif text-[1.75rem] leading-none text-accent"
-          }
+      <div className="meta">
+        <div
+          className="brand"
+          style={{
+            fontWeight: 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={title}
         >
-          {props.headline}
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="block truncate text-sm">{title}</span>
-          <span className="text-xs text-dim">
-            {NETWORK_LABEL[post.network] ?? post.network}
-          </span>
+          {title}
+        </div>
+        <div className="when" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
+          <PlatformPill network={post.network} />
           {post.is_assisted && post.assisted_from && (
-            <span className="text-xs italic text-dim">
-              assisted from {shortDate(post.assisted_from)}
-            </span>
+            <span>assisted from {shortDate(post.assisted_from)}</span>
           )}
-        </span>
-        <span className="mt-1 block text-[13px] text-dim">{props.meta}</span>
-      </span>
+        </div>
+        <div className="when">{props.meta}</div>
+      </div>
+      {props.headline !== undefined && (
+        <div className="mult" style={{ flexShrink: 0, textAlign: "right" }}>
+          {props.headline}
+        </div>
+      )}
       {props.right !== undefined && (
-        <span className="shrink-0 self-center font-serif text-base text-dim">
+        <div className="num" style={{ flexShrink: 0, alignSelf: "center", color: "var(--muted)", fontWeight: 700 }}>
           {props.right}
-        </span>
+        </div>
       )}
-      {post.permalink && (
-        <a
-          href={post.permalink}
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 self-center p-1 text-dim/70 hover:text-ink"
-          title="Open post"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
-        </a>
-      )}
-    </li>
+      <OpenPost href={post.permalink} />
+    </div>
   );
 }
 
-export function Stat(props: { value: string; label: string }) {
+/** KPI tile. */
+export function Stat(props: { value: string; label: string; meta?: string }) {
   return (
-    <div>
-      <div className="font-serif text-2xl leading-tight">{props.value}</div>
-      <div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
-        {props.label}
-      </div>
+    <div className="kpi">
+      <div className="k">{props.label}</div>
+      <div className="v">{props.value}</div>
+      {props.meta && <div className="m">{props.meta}</div>}
     </div>
   );
 }
@@ -136,33 +156,31 @@ export function PlatformTable(props: {
 }) {
   if (props.rows.length === 0) return null;
   return (
-    <div className="mt-6 overflow-x-auto">
-      <table className="w-full max-w-2xl text-left text-sm">
+    <div className="scroll">
+      <table className="t">
         <thead>
-          <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.15em] text-dim">
-            <th className="py-2 pr-4 font-medium"></th>
-            <th className="py-2 pr-4 font-medium">Posts</th>
-            <th className="py-2 pr-4 font-medium">Median views</th>
-            <th className="py-2 pr-4 font-medium">Median engagement</th>
-            <th className="py-2 font-medium">Median completion</th>
+          <tr>
+            <th></th>
+            <th>Posts</th>
+            <th>Median views</th>
+            <th>Median engagement</th>
+            <th>Median completion</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody>
           {props.rows.map((pl) => (
             <tr key={`${pl.network}-${pl.content_type}`}>
-              <td className="py-2.5 pr-4">
-                {platformLabel(pl.network, pl.content_type)}
-              </td>
-              <td className="py-2.5 pr-4 font-serif">{pl.posts}</td>
-              <td className="py-2.5 pr-4 font-serif">
+              <td>{platformLabel(pl.network, pl.content_type)}</td>
+              <td>{pl.posts}</td>
+              <td>
                 {pl.median_views !== null ? props.compact(pl.median_views) : ""}
               </td>
-              <td className="py-2.5 pr-4 font-serif">
+              <td>
                 {pl.median_engagement_rate !== null
                   ? pl.median_engagement_rate.toFixed(1)
                   : ""}
               </td>
-              <td className="py-2.5 font-serif">
+              <td>
                 {pl.median_completion_pct !== null
                   ? `${Math.round(pl.median_completion_pct)}%`
                   : ""}
@@ -175,7 +193,7 @@ export function PlatformTable(props: {
   );
 }
 
-/** Small grey label tags. A brand with two labels shows two. */
+/** Label tags. A brand with two labels shows two. */
 export function LabelTags({
   labels,
   onNavigate,
@@ -185,24 +203,22 @@ export function LabelTags({
 }) {
   if (!labels || labels.length === 0) return null;
   return (
-    <span className="inline-flex flex-wrap gap-1.5">
+    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
       {labels.map((l) =>
         onNavigate ? (
           <button
             key={l}
+            className="pill"
+            style={{ cursor: "pointer", background: "none" }}
             onClick={(e) => {
               e.stopPropagation();
               onNavigate(l);
             }}
-            className="rounded-full border border-line px-2 py-px text-[10px] uppercase tracking-wider text-dim hover:border-dim hover:text-ink"
           >
             {l}
           </button>
         ) : (
-          <span
-            key={l}
-            className="rounded-full border border-line px-2 py-px text-[10px] uppercase tracking-wider text-dim"
-          >
+          <span key={l} className="pill">
             {l}
           </span>
         ),
