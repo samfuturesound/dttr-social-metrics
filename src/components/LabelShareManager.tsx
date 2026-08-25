@@ -116,7 +116,7 @@ export default function LabelShareManager({
 
   return (
     <div className="card">
-      <div className="flex items-baseline justify-between">
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
         <h3 className="lab-mono">
           Share links
         </h3>
@@ -140,14 +140,14 @@ export default function LabelShareManager({
 
       {justCreated && (
         <div className="rowhead">
-          <span className="min-w-0 flex-1 truncate text-sm">
+          <span style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
             {labelShareUrl(justCreated)}
           </span>
           <CopyButton url={labelShareUrl(justCreated)} />
         </div>
       )}
 
-      <form onSubmit={submit} className="mt-5 flex flex-wrap items-end gap-4">
+      <form onSubmit={submit} style={{ marginTop: 14, display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -182,9 +182,9 @@ export default function LabelShareManager({
       {active.length > 0 && (
         <div>
           {active.map((l) => (
-            <li key={l.id} className="flex items-center gap-3 py-3">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm">
+            <li key={l.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "1px solid var(--line)" }}>
+              <span style={{ minWidth: 0, flex: "1 1 auto" }}>
+                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
                   {l.note || "Untitled link"}
                 </span>
                 <span className="when" style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>

@@ -178,8 +178,12 @@ export default function LabelSharePage({ token }: { token: string }) {
     );
   }
 
-  // Unknown, revoked or expired token: every function returns nothing.
-  if (posts.length === 0 && summary.length === 0 && !labelName) {
+  // Dead token — unknown, revoked, or past expires_on. mx_label_share_name
+  // returns null for exactly those, and a label name for anything live, so it
+  // is the same signal mx_share_brand_id gives the single-brand share page.
+  // Row counts can't be used: a live label whose brands have no rows in
+  // post_detail_mv yet also comes back empty.
+  if (!labelName) {
     return (
       <>
         <TopStripe />
@@ -256,7 +260,16 @@ export default function LabelSharePage({ token }: { token: string }) {
         </p>
 
       {posts.length === 0 ? (
-        <div className="empty">No posts recorded for these accounts yet.</div>
+        <div className="card" style={{ maxWidth: 460 }}>
+          <div className="eyebrow">
+            <span>No data yet</span>
+          </div>
+          <h2 style={{ fontSize: 22 }}>Nothing to show yet</h2>
+          <p className="note">
+            These accounts were added recently. Figures appear after the next
+            overnight update — the link itself is fine, so keep it.
+          </p>
+        </div>
       ) : (
         <>
           <Section

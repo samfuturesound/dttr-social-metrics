@@ -36,7 +36,7 @@ export default function PostDetail(props: {
   }
 
   return (
-    <div className="space-y-6 pb-8 pl-34 pr-2 text-sm max-sm:pl-0">
+    <div style={{ paddingBottom: 16, fontSize: 13 }}>
       {err && <p className="err-line">{err}</p>}
       <Notes
         notes={props.notes}
@@ -80,12 +80,12 @@ function Notes(props: { notes: PostNote[]; onAdd: (note: string) => void }) {
     <section>
       <Heading>Notes</Heading>
       {props.notes.map((n) => (
-        <p key={n.id} className="mb-1.5">
+        <p key={n.id} style={{ marginBottom: 6 }}>
           {n.note}{" "}
           <span className="note">— {shortDate(n.created_at)}</span>
         </p>
       ))}
-      <form onSubmit={submit} className="mt-1 flex items-end gap-3">
+      <form onSubmit={submit} style={{ marginTop: 4, display: "flex", alignItems: "flex-end", gap: 10 }}>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -137,7 +137,7 @@ function Boosts(props: {
     <section>
       <Heading>Paid support</Heading>
       {props.interventions.map((i) => (
-        <p key={i.id} className="mb-1.5">
+        <p key={i.id} style={{ marginBottom: 6 }}>
           {INTERVENTION_LABELS[i.kind] ?? i.kind} from {shortDate(i.started_on)}
           {i.spend !== null && ` · £${i.spend}`}
           {i.notes && <span className="note"> — {i.notes}</span>}{" "}
@@ -150,7 +150,7 @@ function Boosts(props: {
         </p>
       ))}
       {showForm ? (
-        <form onSubmit={submit} className="mt-2 flex flex-wrap items-end gap-4">
+        <form onSubmit={submit} style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
           <select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>
             {INTERVENTION_KINDS.map((k) => (
               <option key={k} value={k}>
@@ -233,7 +233,7 @@ function Streaming(props: {
     <section>
       <Heading>Spotify impact</Heading>
       {props.captures.map((c) => (
-        <p key={c.id} className="mb-1.5">
+        <p key={c.id} style={{ marginBottom: 6 }}>
           {c.track_name ?? "Unknown track"}
           {c.captured_on && ` · ${shortDate(c.captured_on)}`}
           {c.period_label && ` · ${c.period_label}`}: {compact(c.streams)}{" "}

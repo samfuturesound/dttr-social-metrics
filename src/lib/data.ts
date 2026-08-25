@@ -402,7 +402,41 @@ export async function fetchSharePosts(token: string): Promise<SharePost[]> {
   }));
 }
 
+/**
+ * Resolve a share token to its brand id, or null.
+ *
+ * This is what separates "the link is dead" from "the link is fine, the
+ * account just has no figures yet". mx_share_brand_id returns null only when
+ * the token is unknown, revoked, or past expires_on — a valid token for a
+ * brand with no rows in post_detail_mv still returns its brand_id. Row counts
+ * from mx_share_posts cannot tell those apart, because both come back empty.
+ *
+ * Granted to anon, and a single indexed lookup on brand_shares. The share
+ * pages issue it inside the same Promise.all as the other two calls, so it
+ * costs no additional wall-clock time.
+ */
+export async function fetchShareBrandId(token: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc("mx_share_brand_id", {
+    p_token: token,
+  });
+  fail(error);
+  return num(data) ?? null;
+}
+
 /* ---------- Share management (internal only) ---------- */
+
+/**
+ * Rebuild post_detail_mv on demand. Needed after adding a brand: its posts
+ * don't reach the materialized view until the 03:30 cron otherwise.
+ *
+ * authenticated only — never anon. REFRESH ... CONCURRENTLY, so readers of
+ * the share pages are not blocked while it runs.
+ */
+export async function refreshDerived(): Promise<string> {
+  const { data, error } = await supabase.rpc("mx_refresh_derived");
+  fail(error);
+  return (data as string) ?? "refreshed";
+}
 
 export async function listShares(): Promise<ShareLink[]> {
   if (MOCK) return [];

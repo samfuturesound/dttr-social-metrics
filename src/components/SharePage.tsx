@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchSharePosts, fetchShareSummary } from "../lib/data";
+import {
+  fetchShareBrandId,
+  fetchSharePosts,
+  fetchShareSummary,
+} from "../lib/data";
 import { age, compact, multiple, shortDate } from "../lib/format";
 import type { SharePost, ShareSummary } from "../lib/types";
 import { Section, Empty } from "./Section";
@@ -26,15 +30,24 @@ const PAGE_MAX = 50;
 export default function SharePage({ token }: { token: string }) {
   const [posts, setPosts] = useState<SharePost[] | null>(null);
   const [summary, setSummary] = useState<ShareSummary[]>([]);
+  /** undefined = not resolved yet, null = dead token, number = live token. */
+  const [brandId, setBrandId] = useState<number | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    Promise.all([fetchSharePosts(token), fetchShareSummary(token)])
-      .then(([p, s]) => {
+    // Three calls, one round trip: they go out together, and the brand-id
+    // lookup is a single indexed read on brand_shares.
+    Promise.all([
+      fetchSharePosts(token),
+      fetchShareSummary(token),
+      fetchShareBrandId(token),
+    ])
+      .then(([p, s, id]) => {
         setPosts(p);
         setSummary(s);
+        setBrandId(id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [token]);
@@ -169,8 +182,9 @@ export default function SharePage({ token }: { token: string }) {
     );
   }
 
-  // Unknown, revoked or expired token: both functions return zero rows.
-  if (posts.length === 0 && summary.length === 0) {
+  // Dead token — unknown, revoked, or past expires_on. mx_share_brand_id
+  // returns null for exactly these three, and for nothing else.
+  if (brandId === null) {
     return (
       <>
         <TopStripe />
@@ -184,6 +198,30 @@ export default function SharePage({ token }: { token: string }) {
             <p className="note">
               It may have been revoked or reached its expiry date. Ask whoever
               sent it for a new one.
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Live token, no figures yet. A brand added today has no rows in
+  // post_detail_mv until the overnight refresh, so both functions come back
+  // empty even though nothing is wrong with the link.
+  if (posts.length === 0 && summary.length === 0) {
+    return (
+      <>
+        <TopStripe />
+        <ShareBar subtitle="Social performance" />
+        <div className="wrap">
+          <div className="card" style={{ marginTop: 24, maxWidth: 460 }}>
+            <div className="eyebrow">
+              <span>No data yet</span>
+            </div>
+            <h2 style={{ fontSize: 22 }}>Nothing to show yet</h2>
+            <p className="note">
+              This account was added recently. Figures appear after the next
+              overnight update — the link itself is fine, so keep it.
             </p>
           </div>
         </div>
