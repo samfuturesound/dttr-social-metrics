@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchBrandPlatformRanks,
   fetchBrandSkipRates,
@@ -6,6 +6,7 @@ import {
   fetchPostDetail,
   fetchSkipRoster,
   fetchTrend,
+  fetchInterventions,
 } from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { labelPath, navigate } from "../lib/router";
@@ -15,12 +16,14 @@ import type {
   PostDetail,
   SkipRoster,
   TrendRow,
+  Intervention,
 } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
 import { AppBar, TopStripe } from "./Chrome";
 import TrendChart from "./TrendChart";
+import AssistMark from "./AssistMark";
 import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
 import ShareManager from "./ShareManager";
@@ -41,6 +44,7 @@ export default function BrandPage({ brand }: { brand: string }) {
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
   const [trend, setTrend] = useState<TrendRow[]>([]);
+  const [interventions, setInterventions] = useState<Intervention[]>([]);
 
   // Same cached mx_trend fetch the board uses; filtered to this account.
   useEffect(() => {
@@ -51,34 +55,48 @@ export default function BrandPage({ brand }: { brand: string }) {
       });
   }, [brand]);
 
+  /** Extracted from the mount effect so marking a post can refetch. The
+   *  medians genuinely move when a post leaves the baseline, so the real
+   *  numbers have to be re-read rather than patched locally. */
+  const reload = useCallback(async () => {
+    try {
+      const [p, s, pl, skips, roster] = await Promise.all([
+        fetchPostDetail(brand),
+        fetchBrandSummary(brand),
+        fetchBrandPlatformRanks(brand),
+        fetchBrandSkipRates(brand),
+        fetchSkipRoster(),
+      ]);
+      setPosts(p);
+      setSummary(s);
+      setPlatforms(pl);
+      setSkipRoster(roster);
+      setSkipByKey(
+        new Map(
+          skips.map((r) => [
+            `${r.brand_name}|${r.network}|${r.content_type}`,
+            r.median_skip_rate,
+          ]),
+        ),
+      );
+      // Needed for the paid-support popover's existing-marks list.
+      fetchInterventions(p.map((x) => x.external_id))
+        .then(setInterventions)
+        .catch(() => {
+          /* adding still works; the list just stays empty */
+        });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [brand]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     setPosts(null);
     setSummary(null);
     setLatestVisible(PAGE_SIZE);
-    Promise.all([
-      fetchPostDetail(brand),
-      fetchBrandSummary(brand),
-      fetchBrandPlatformRanks(brand),
-      fetchBrandSkipRates(brand),
-      fetchSkipRoster(),
-    ])
-      .then(([p, s, pl, skips, roster]) => {
-        setPosts(p);
-        setSummary(s);
-        setPlatforms(pl);
-        setSkipRoster(roster);
-        setSkipByKey(
-          new Map(
-            skips.map((r) => [
-              `${r.brand_name}|${r.network}|${r.content_type}`,
-              r.median_skip_rate,
-            ]),
-          ),
-        );
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [brand]);
+    reload();
+  }, [brand, reload]);
 
   const recent = useMemo(
     () => (posts ?? []).filter((p) => p.age_days <= QUARTER_DAYS),
@@ -239,6 +257,19 @@ export default function BrandPage({ brand }: { brand: string }) {
                     post={p}
                     headline={multiple(p.views_multiple)}
                     meta={viewsMeta(p)}
+                    assist={
+                      <AssistMark
+                        externalId={p.external_id}
+                        publishedAt={p.published_at}
+                        interventions={interventions.filter(
+                          (i) => i.external_id === p.external_id,
+                        )}
+                        assistedFrom={p.assisted_from}
+                        assistKinds={p.assist_kinds}
+                        reload={reload}
+                        showControl={true}
+                      />
+                    }
                   />
                 ))}
               </div>
@@ -264,6 +295,19 @@ export default function BrandPage({ brand }: { brand: string }) {
                         post={p}
                         right={multiple(p.views_multiple)}
                         meta={`${age(p.age_days)} old · ${compact(p.views)} views vs ${compact(p.median_views)} median`}
+                    assist={
+                      <AssistMark
+                        externalId={p.external_id}
+                        publishedAt={p.published_at}
+                        interventions={interventions.filter(
+                          (i) => i.external_id === p.external_id,
+                        )}
+                        assistedFrom={p.assisted_from}
+                        assistKinds={p.assist_kinds}
+                        reload={reload}
+                        showControl={true}
+                      />
+                    }
                       />
                     ))}
                 </div>

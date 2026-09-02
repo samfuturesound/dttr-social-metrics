@@ -279,7 +279,7 @@ export default function Dashboard() {
               {!leading || leading.length === 0 ? (
                 <Empty>Nothing is beating its baseline this morning.</Empty>
               ) : (
-                <PostList listId="leading" posts={leading} {...rowProps} reload={load} />
+                <PostList listId="leading" posts={leading} canMark {...rowProps} reload={load} />
               )}
             </Section>
 
@@ -292,7 +292,7 @@ export default function Dashboard() {
               {latestArtists.length === 0 ? (
                 <Empty>Nothing here yet.</Empty>
               ) : (
-                <PaginatedPostList listId="latest-artists" posts={latestArtists} variant="feed" {...rowProps} reload={load} />
+                <PaginatedPostList listId="latest-artists" posts={latestArtists} variant="feed" canMark {...rowProps} reload={load} />
               )}
             </Section>
 
@@ -305,7 +305,7 @@ export default function Dashboard() {
               {latestThemes.length === 0 ? (
                 <Empty>Nothing here yet.</Empty>
               ) : (
-                <PaginatedPostList listId="latest-themes" posts={latestThemes} variant="feed" {...rowProps} reload={load} />
+                <PaginatedPostList listId="latest-themes" posts={latestThemes} variant="feed" canMark {...rowProps} reload={load} />
               )}
             </Section>
 
@@ -485,6 +485,8 @@ function PostList(props: {
   reload: () => Promise<void>;
   variant?: "score" | "feed" | "reach";
   skipByBrand?: Map<string, number | null>;
+  /** Leading and Latest only — see PostRow. */
+  canMark?: boolean;
 }) {
   return (
     <div>
@@ -497,6 +499,7 @@ function PostList(props: {
             key={p.external_id}
             post={p}
             variant={props.variant}
+            canMark={props.canMark}
             medianSkip={props.skipByBrand?.get(p.brand_name) ?? null}
             notes={props.notes.filter((n) => n.external_id === p.external_id)}
             interventions={props.interventions.filter(

@@ -9,6 +9,7 @@ import PostDetail from "./PostDetail";
 import { brandPath, navigate } from "../lib/router";
 import { OpenPost, PlatformPill, Thumb } from "./BrandRow";
 import { SkipMarker } from "./SkipRateExplainer";
+import AssistMark from "./AssistMark";
 
 /**
  * variant "score" (default): the multiple leads — Leading / Best Performing.
@@ -29,6 +30,9 @@ export default function PostRow(props: {
   variant?: "score" | "feed" | "reach";
   /** This account's own median skip rate, for the reel comparison. */
   medianSkip?: number | null;
+  /** Leading and Latest only. Best and Most viewed still show the marker on an
+   *  already-assisted post, but carry no control. */
+  canMark?: boolean;
 }) {
   const { post, open } = props;
   const feed = props.variant === "feed";
@@ -57,7 +61,6 @@ export default function PostRow(props: {
               {post.brand_name}
             </a>
             <PlatformPill network={post.network} contentType={post.content_type} />
-            {post.is_assisted && <span className="tag">Assisted</span>}
           </div>
 
           {post.caption && (
@@ -106,10 +109,29 @@ export default function PostRow(props: {
               )}
           </div>
 
-          <div style={{ marginTop: 8 }}>
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              flexWrap: "wrap",
+              fontSize: 12,
+              color: "var(--muted)",
+            }}
+          >
             <button className="lnk" onClick={props.onToggle} aria-expanded={open}>
               Notes{noteCount > 0 ? ` (${noteCount})` : ""}
             </button>
+            <AssistMark
+              externalId={post.external_id}
+              publishedAt={post.published_at}
+              interventions={props.interventions}
+              assistedFrom={post.assisted_from}
+              assistKinds={post.assist_kinds}
+              reload={props.reload}
+              showControl={props.canMark === true}
+            />
           </div>
         </div>
 

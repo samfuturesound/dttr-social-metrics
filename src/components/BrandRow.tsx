@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { shortDate } from "../lib/format";
 import type { RowPost } from "../lib/types";
 
@@ -87,6 +87,14 @@ export function BrandRow(props: {
   headline?: string;
   right?: string;
   meta: string;
+  /**
+   * Internal-only row affordance, injected as content rather than switched on
+   * by a flag. BrandPage and LabelPage pass the paid-marking control here;
+   * SharePage and LabelSharePage pass nothing, so a share route cannot render
+   * it even by accident. Keep it that way — this is the one seam where an
+   * internal control could reach a public page.
+   */
+  assist?: ReactNode;
 }) {
   const { post } = props;
   const title =
@@ -110,11 +118,15 @@ export function BrandRow(props: {
         </div>
         <div className="when" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
           <PlatformPill network={post.network} />
-          {post.is_assisted && post.assisted_from && (
+          {/* Suppressed when an assist control is injected — AssistMark shows
+              a richer marker (date plus kind) and would otherwise duplicate
+              this. Label pages pass no control, so they keep this line. */}
+          {!props.assist && post.is_assisted && post.assisted_from && (
             <span>assisted from {shortDate(post.assisted_from)}</span>
           )}
         </div>
         <div className="when">{props.meta}</div>
+        {props.assist && <div style={{ marginTop: 6 }}>{props.assist}</div>}
       </div>
       {props.headline !== undefined && (
         <div className="mult" style={{ flexShrink: 0, textAlign: "right" }}>
