@@ -1,6 +1,12 @@
 import { supabase, MOCK } from "./supabase";
 import { num } from "./format";
-import { MOCK_ACCOUNT_SCORES, MOCK_BRANDS, MOCK_FLAGGED, MOCK_PERIOD } from "./mock";
+import {
+  MOCK_ACCOUNT_SCORES,
+  MOCK_BRANDS,
+  MOCK_FLAGGED,
+  MOCK_PERIOD,
+  MOCK_TREND,
+} from "./mock";
 import type {
   AccountScore,
   AiAnswer,
@@ -23,6 +29,7 @@ import type {
   PostDetail,
   PostNote,
   StreamingCapture,
+  TrendRow,
 } from "./types";
 
 function fail(error: { message: string } | null): void {
@@ -421,6 +428,69 @@ export async function fetchShareBrandId(token: string): Promise<number | null> {
   });
   fail(error);
   return num(data) ?? null;
+}
+
+/* ---------- Monthly trend ---------- */
+
+function trendRow(r: Record<string, unknown>, brand: string): TrendRow {
+  return {
+    brand_name: (r.brand_name as string) ?? brand,
+    labels: (r.labels as string[] | null) ?? null,
+    network: r.network as string,
+    content_type: r.content_type as string,
+    month: r.month as string,
+    posts: num(r.posts) ?? 0,
+    median_views: num(r.median_views),
+    median_engagement_rate: num(r.median_engagement_rate),
+    growth_multiple: num(r.growth_multiple),
+  };
+}
+
+/**
+ * The whole trend view — 59 rows across every brand, platform and month.
+ *
+ * Small enough to fetch once and slice in the browser, so the dashboard, brand
+ * pages and label pages all share one request rather than one per filter. The
+ * promise itself is cached, so concurrent callers on first paint coalesce
+ * instead of racing.
+ */
+let trendCache: Promise<TrendRow[]> | null = null;
+
+export function fetchTrend(): Promise<TrendRow[]> {
+  if (MOCK) return Promise.resolve(MOCK_TREND);
+  if (!trendCache) {
+    trendCache = (async () => {
+      const { data, error } = await supabase.from("mx_trend").select("*");
+      fail(error);
+      return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
+    })().catch((e) => {
+      trendCache = null; // never cache a failure — the next mount retries
+      throw e;
+    });
+  }
+  return trendCache;
+}
+
+/**
+ * Brand share route. Returns no brand column — a share is one account — so
+ * rows come back with an empty brand_name and the page fills it from the name
+ * it already has. That avoids a second call purely to learn the label.
+ */
+export async function fetchShareTrend(token: string): Promise<TrendRow[]> {
+  const { data, error } = await supabase.rpc("mx_share_trend", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
+}
+
+/** Label share route. Carries brand_name, since a label spans accounts. */
+export async function fetchLabelShareTrend(token: string): Promise<TrendRow[]> {
+  const { data, error } = await supabase.rpc("mx_label_share_trend", {
+    p_token: token,
+  });
+  fail(error);
+  return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
 }
 
 /* ---------- Share management (internal only) ---------- */

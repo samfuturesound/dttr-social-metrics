@@ -300,3 +300,29 @@ export interface AiAnswer {
   tokens_out?: number;
   truncated?: boolean;
 }
+
+/**
+ * One month of one account on one platform, from mx_trend (internal) or the
+ * mx_share_trend / mx_label_share_trend RPCs (public).
+ *
+ * brand_name is normalised on the way in: mx_share_trend returns no brand
+ * column because a brand share is a single account, so the share page fills it
+ * from the name it already holds rather than making another call.
+ *
+ * A month is absent from the payload entirely when it carried fewer than three
+ * settled posts. That is a real gap, not a zero, and the chart must not bridge
+ * it — see TrendChart.
+ */
+export interface TrendRow {
+  brand_name: string;
+  /** Present on mx_trend only — the share RPCs return no label column, which
+   *  is why the label filter is an internal-page concern. */
+  labels?: string[] | null;
+  network: string;
+  content_type: string;
+  month: string;
+  posts: number;
+  median_views: number | null;
+  median_engagement_rate: number | null;
+  growth_multiple: number | null;
+}

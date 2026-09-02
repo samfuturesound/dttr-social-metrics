@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dttr-social-metrics",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "exec ~/.bun/bin/bun run dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "dttr-social-metrics (mock)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "VITE_MOCK=1 exec ~/.bun/bin/bun run dev"],
+      "port": 5175,
+      "autoPort": true
+    }
+  ]
+}

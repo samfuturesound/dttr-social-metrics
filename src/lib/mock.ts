@@ -1,4 +1,10 @@
-import type { AccountScore, Brand, FlaggedPost, Period } from "./types";
+import type {
+  AccountScore,
+  Brand,
+  FlaggedPost,
+  Period,
+  TrendRow,
+} from "./types";
 
 // Fixtures shaped like real mx_flagged_interim rows (30-day window, 2026-08).
 // Thumbnails: data-URI tiles stand in for Metricool S3 covers; one row has a
@@ -130,3 +136,59 @@ export const MOCK_ACCOUNT_SCORES: AccountScore[] = [
   { brand_name: "Tommy Ashby - The Birds", labels: ["Dance to the Radio"], brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
   { brand_name: "Lofi Bloom", labels: ["Dance to the Radio"], brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
 ];
+
+/**
+ * Trend fixtures for VITE_MOCK — shaped like mx_trend so the chart's multi
+ * series path (selector, colour assignment, gaps, log spread) can be exercised
+ * without a session. Deliberately includes missing months and a 400x spread
+ * between the biggest and smallest account.
+ */
+const TREND_MONTHS = [
+  "2026-02-01",
+  "2026-03-01",
+  "2026-04-01",
+  "2026-05-01",
+  "2026-06-01",
+  "2026-07-01",
+];
+
+const TREND_SHAPE: [string, string, (number | null)[]][] = [
+  ["SOAP", "tiktok", [4200, 9800, 31000, 88000, 187525, 120400]],
+  ["Nature", "tiktok", [474, 610, null, 890, 1240, 1580]],
+  ["Lofi Bloom", "tiktok", [1800, 2400, 3100, null, 5200, 6100]],
+  ["L'objectif", "tiktok", [12000, 9400, 15600, 22000, null, 18400]],
+  ["Far Caspian", "tiktok", [900, 1150, 1020, 1380, 1610, 1490]],
+  ["Twin Atlantic", "tiktok", [null, null, 1080, 1240, 1010, 1310]],
+  ["Gravy", "tiktok", [640, null, 780, 820, 960, null]],
+  ["Tommy Ashby", "tiktok", [2100, 2600, null, 3400, 4100, 3900]],
+  ["Reece Bibby", "tiktok", [null, 520, 680, 740, null, 910]],
+  ["Big Warm Bed", "tiktok", [1500, 1720, 1900, null, 2400, 2650]],
+  ["SOAP", "instagram", [8800, 14200, 26000, 41000, 62000, 55000]],
+  ["Far Caspian", "instagram", [21000, 19400, 26300, null, 31200, 28900]],
+  ["Twin Atlantic", "instagram", [9200, 9949, null, 11400, 10800, 12100]],
+];
+
+export const MOCK_TREND: TrendRow[] = TREND_SHAPE.flatMap(
+  ([brand, network, values]) =>
+    values.flatMap((v, i) =>
+      v === null
+        ? []
+        : [
+            {
+              brand_name: brand,
+              labels: ["Dance to the Radio"],
+              network,
+              content_type: network === "instagram" ? "reels" : "posts",
+              month: TREND_MONTHS[i],
+              posts: 3 + ((i * 7 + brand.length) % 9),
+              median_views: v,
+              median_engagement_rate:
+                Math.round((2 + ((i * 13 + brand.length) % 90) / 10) * 10) / 10,
+              growth_multiple:
+                i === 0 || values[i - 1] == null
+                  ? null
+                  : Math.round((v / (values[i - 1] as number)) * 100) / 100,
+            },
+          ],
+    ),
+);

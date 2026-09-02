@@ -5,6 +5,7 @@ import {
   fetchLabelPosts,
   fetchLabels,
   fetchSkipRoster,
+  fetchTrend,
 } from "../lib/data";
 import { age, compact, multiple, shortDate } from "../lib/format";
 import { brandPath, navigate } from "../lib/router";
@@ -13,6 +14,7 @@ import type {
   Label,
   PostDetail,
   SkipRoster,
+  TrendRow,
 } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, Stat, platformLabel } from "./BrandRow";
@@ -21,6 +23,7 @@ import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
 import LabelShareManager from "./LabelShareManager";
 import { AppBar, TopStripe } from "./Chrome";
+import TrendChart from "./TrendChart";
 
 const QUARTER_DAYS = 92;
 const PAGE_SIZE = 10;
@@ -38,6 +41,21 @@ export default function LabelPage({ slug }: { slug: string }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
+
+  const [trend, setTrend] = useState<TrendRow[]>([]);
+
+  // mx_trend carries the label array, so the label filter is client-side on
+  // the same cached payload the board already fetched.
+  useEffect(() => {
+    if (!label) return;
+    fetchTrend()
+      .then((rows) =>
+        setTrend(rows.filter((r) => (r.labels ?? []).includes(label.name))),
+      )
+      .catch(() => {
+        /* additive */
+      });
+  }, [label]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -445,6 +463,8 @@ export default function LabelPage({ slug }: { slug: string }) {
               </div>
             )}
           </Section>
+
+          <TrendChart rows={trend} showArtistSelector />
         </>
       )}
       </div>

@@ -5,6 +5,7 @@ import {
   fetchBrandSummary,
   fetchPostDetail,
   fetchSkipRoster,
+  fetchTrend,
 } from "../lib/data";
 import { age, compact, monthYear, multiple, shortDate } from "../lib/format";
 import { labelPath, navigate } from "../lib/router";
@@ -13,11 +14,13 @@ import type {
   BrandSummary,
   PostDetail,
   SkipRoster,
+  TrendRow,
 } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
 import RankedPlatformTable from "./RankedPlatformTable";
 import { AppBar, TopStripe } from "./Chrome";
+import TrendChart from "./TrendChart";
 import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
 import ShareManager from "./ShareManager";
@@ -36,6 +39,17 @@ export default function BrandPage({ brand }: { brand: string }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
+
+  const [trend, setTrend] = useState<TrendRow[]>([]);
+
+  // Same cached mx_trend fetch the board uses; filtered to this account.
+  useEffect(() => {
+    fetchTrend()
+      .then((rows) => setTrend(rows.filter((r) => r.brand_name === brand)))
+      .catch(() => {
+        /* additive */
+      });
+  }, [brand]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -390,6 +404,8 @@ export default function BrandPage({ brand }: { brand: string }) {
               </div>
             )}
           </Section>
+
+          <TrendChart rows={trend} showArtistSelector={false} />
         </>
       )}
       </div>

@@ -14,6 +14,7 @@ import {
   fetchRecent,
   fetchStreaming,
   fetchTopViews,
+  fetchTrend,
 } from "../lib/data";
 import { compact, multiple, shortDate, todayLabel } from "../lib/format";
 import type {
@@ -26,6 +27,7 @@ import type {
   Period,
   PostNote,
   StreamingCapture,
+  TrendRow,
 } from "../lib/types";
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
@@ -33,6 +35,7 @@ import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
 import { SkipRatePanel } from "./SkipRateExplainer";
 import { AppBar, TopStripe } from "./Chrome";
+import TrendChart from "./TrendChart";
 import { brandPath, labelPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
@@ -58,6 +61,7 @@ export default function Dashboard() {
   const [adminOpen, setAdminOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [explainer, setExplainer] = useState<null | "score" | "skip">(null);
+  const [trend, setTrend] = useState<TrendRow[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -98,6 +102,12 @@ export default function Dashboard() {
       setNotes(n);
       setInterventions(i);
       setStreaming(s);
+      // Cached module-side: the brand and label pages reuse this one fetch.
+      fetchTrend()
+        .then(setTrend)
+        .catch(() => {
+          /* the trend is additive; never block the board on it */
+        });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -399,6 +409,8 @@ export default function Dashboard() {
                 </div>
               )}
             </Section>
+
+            <TrendChart rows={trend} showArtistSelector />
           </>
         )}
       </div>

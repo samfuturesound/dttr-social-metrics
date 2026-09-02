@@ -3,12 +3,14 @@ import {
   fetchShareBrandId,
   fetchSharePosts,
   fetchShareSummary,
+  fetchShareTrend,
 } from "../lib/data";
 import { age, compact, multiple, shortDate } from "../lib/format";
-import type { SharePost, ShareSummary } from "../lib/types";
+import type { SharePost, ShareSummary, TrendRow } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, PlatformTable, platformLabel } from "./BrandRow";
 import { ShareBar, TopStripe } from "./Chrome";
+import TrendChart from "./TrendChart";
 import EngagementExplainer from "./EngagementExplainer";
 
 const QUARTER_DAYS = 92;
@@ -32,6 +34,7 @@ export default function SharePage({ token }: { token: string }) {
   const [summary, setSummary] = useState<ShareSummary[]>([]);
   /** undefined = not resolved yet, null = dead token, number = live token. */
   const [brandId, setBrandId] = useState<number | null | undefined>(undefined);
+  const [trend, setTrend] = useState<TrendRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -43,11 +46,13 @@ export default function SharePage({ token }: { token: string }) {
       fetchSharePosts(token),
       fetchShareSummary(token),
       fetchShareBrandId(token),
+      fetchShareTrend(token),
     ])
-      .then(([p, s, id]) => {
+      .then(([p, s, id, tr]) => {
         setPosts(p);
         setSummary(s);
         setBrandId(id);
+        setTrend(tr);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [token]);
@@ -228,6 +233,10 @@ export default function SharePage({ token }: { token: string }) {
       </>
     );
   }
+
+  // mx_share_trend returns no brand column — a share is one account — so the
+  // name comes from the summary we already hold rather than another call.
+  const trendRows = trend.map((r) => ({ ...r, brand_name: brandName }));
 
   const viewsMeta = (p: SharePost) =>
     `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`;
@@ -473,6 +482,8 @@ export default function SharePage({ token }: { token: string }) {
             </div>
           )}
         </Section>
+
+        <TrendChart rows={trendRows} showArtistSelector={false} />
       </div>
     </>
   );

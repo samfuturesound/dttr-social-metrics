@@ -3,12 +3,14 @@ import {
   fetchLabelShareName,
   fetchLabelSharePosts,
   fetchLabelShareSummary,
+  fetchLabelShareTrend,
 } from "../lib/data";
 import { age, compact, multiple, shortDate } from "../lib/format";
-import type { LabelShareSummary, SharePost } from "../lib/types";
+import type { LabelShareSummary, SharePost, TrendRow } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, PlatformTable, platformLabel } from "./BrandRow";
 import { ShareBar, TopStripe } from "./Chrome";
+import TrendChart from "./TrendChart";
 import EngagementExplainer from "./EngagementExplainer";
 
 const QUARTER_DAYS = 92;
@@ -28,6 +30,7 @@ export default function LabelSharePage({ token }: { token: string }) {
   const [posts, setPosts] = useState<SharePost[] | null>(null);
   const [summary, setSummary] = useState<LabelShareSummary[]>([]);
   const [labelName, setLabelName] = useState<string | null>(null);
+  const [trend, setTrend] = useState<TrendRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
 
@@ -37,11 +40,13 @@ export default function LabelSharePage({ token }: { token: string }) {
       fetchLabelSharePosts(token),
       fetchLabelShareSummary(token),
       fetchLabelShareName(token),
+      fetchLabelShareTrend(token),
     ])
-      .then(([p, s, n]) => {
+      .then(([p, s, n, tr]) => {
         setPosts(p);
         setSummary(s);
         setLabelName(n);
+        setTrend(tr);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [token]);
@@ -478,6 +483,8 @@ export default function LabelSharePage({ token }: { token: string }) {
               </div>
             )}
           </Section>
+
+          <TrendChart rows={trend} showArtistSelector={false} />
         </>
       )}
       </div>
