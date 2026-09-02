@@ -3,10 +3,10 @@
 Internal morning glance page for Dance to the Radio's social accounts. Answers
 one question: **what's performing unusually well and needs a reaction today.**
 
-Deployed at `dttrsocialmetrics.songflux.app` (Vercel). Reads the `mx_*` views
-in its own Supabase project `pvyyaiaaqikvilukcqva`. It used to share a project
-with SongFlux and the co-publishing calculator; it was split out onto its own
-in August 2026.
+Deployed at `dttrmetrics.futuresoundartistservices.com` (Vercel). Reads the
+`mx_*` views in its own Supabase project `pvyyaiaaqikvilukcqva`. It used to
+share a project with SongFlux and the co-publishing calculator; it was split
+out onto its own in August 2026.
 
 The schema lives in `supabase/migrations/` — extracted from the database during
 that split, and the source of truth since. See
