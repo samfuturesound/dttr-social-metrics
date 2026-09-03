@@ -125,10 +125,7 @@ export default function PostRow(props: {
             </button>
             <AssistMark
               externalId={post.external_id}
-              publishedAt={post.published_at}
-              interventions={props.interventions}
-              assistedFrom={post.assisted_from}
-              assistKinds={post.assist_kinds}
+              isPaid={post.is_assisted}
               reload={props.reload}
               showControl={props.canMark === true}
             />

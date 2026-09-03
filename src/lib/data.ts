@@ -184,6 +184,8 @@ export async function addNote(externalId: string, note: string): Promise<void> {
   fail(error);
 }
 
+/** Used by the post detail panel, which keeps the fuller intervention record
+ *  (kind, dates, spend, notes). The row control is the plain paid toggle below. */
 export async function addIntervention(args: {
   externalId: string;
   kind: string;
@@ -207,6 +209,26 @@ export async function addIntervention(args: {
 export async function removeIntervention(id: string): Promise<void> {
   const { error } = await supabase.rpc("mx_remove_intervention", { p_id: id });
   fail(error);
+}
+
+/**
+ * Marks a post paid, or clears the mark. Returns the resulting state as the
+ * function reports it — callers should use that rather than assuming the click
+ * took effect. Idempotent, so a double click is harmless.
+ *
+ * authenticated only. anon holds no execute grant on mx_set_paid, so a share
+ * page cannot reach this even if a control were ever rendered on one.
+ */
+export async function setPaid(
+  externalId: string,
+  paid: boolean,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("mx_set_paid", {
+    p_external_id: externalId,
+    p_paid: paid,
+  });
+  fail(error);
+  return data === true;
 }
 
 export async function addBrand(args: {

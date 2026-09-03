@@ -229,6 +229,12 @@ table.t tr.divide td { border-top: 2px solid var(--line); }
   font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
 }
 
+/* The paid marker is clickable on internal rows, so it is a button there.
+   Strips the UA chrome the span version never had to deal with. */
+button.tag { appearance: none; border: 0; cursor: pointer; font-family: inherit; }
+button.tag:hover { background: var(--muted); }
+button.tag:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .ratewarn {
   background: var(--warn-bg); border-left: 5px solid var(--warn-edge);
   border-radius: 0; padding: 12px 14px; margin-bottom: 14px;

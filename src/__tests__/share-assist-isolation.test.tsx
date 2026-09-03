@@ -58,6 +58,13 @@ describe("share routes carry no assist control", () => {
       const passesSlot = /\bassist\s*=/.test(src(file));
       expect(passesSlot).toBe(false);
     });
+
+    test(`${file} never reaches the paid-marking RPC`, () => {
+      // The grant is the real guard - anon holds no execute on mx_set_paid -
+      // but a share page should not be calling it in the first place.
+      const callsRpc = /\bsetPaid\b|mx_set_paid/.test(src(file));
+      expect(callsRpc).toBe(false);
+    });
   }
 
   test("only internal routes import AssistMark", () => {
@@ -78,8 +85,10 @@ describe("BrandRow without the assist slot", () => {
 
   test("renders no marking control even for an assisted post", () => {
     expect(markup).not.toMatch(/Mark paid/i);
-    expect(markup).not.toMatch(/Paid support/i);
-    expect(markup).not.toMatch(/role="dialog"/);
+    // The toggle's own markers: the hover hint and the pressed state.
+    expect(markup).not.toMatch(/excluded from this account/i);
+    expect(markup).not.toMatch(/aria-pressed/);
+    expect(markup).not.toMatch(/<button/);
   });
 
   test("still renders the row itself", () => {

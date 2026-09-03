@@ -118,9 +118,9 @@ export function BrandRow(props: {
         </div>
         <div className="when" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
           <PlatformPill network={post.network} />
-          {/* Suppressed when an assist control is injected — AssistMark shows
-              a richer marker (date plus kind) and would otherwise duplicate
-              this. Label pages pass no control, so they keep this line. */}
+          {/* Suppressed when an assist control is injected — AssistMark carries
+              the marker itself there, and would otherwise say the same thing
+              twice. Label pages pass no control, so they keep this line. */}
           {!props.assist && post.is_assisted && post.assisted_from && (
             <span>assisted from {shortDate(post.assisted_from)}</span>
           )}
