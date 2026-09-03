@@ -40,15 +40,20 @@ export function PlatformPill({
  * broken-image glyph, never a layout shift.
  */
 export function Thumb({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  if (!url || failed) return <span aria-hidden className="thumb" />;
+  // The URL that failed, not a boolean: a component instance outlives the row
+  // it started with, and a sticky `failed` flag would keep showing the tile
+  // after the post's thumbnail_url changed to one that works. That is not
+  // hypothetical if thumbnails are ever cached into storage — the same post
+  // would come back with a new URL.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (!url || failedUrl === url) return <span aria-hidden className="thumb" />;
   return (
     <img
       src={url}
       alt=""
       loading="lazy"
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => setFailedUrl(url)}
       className="thumb"
     />
   );
