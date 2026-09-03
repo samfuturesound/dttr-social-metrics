@@ -321,8 +321,12 @@ export interface TrendRow {
   network: string;
   content_type: string;
   month: string;
+  /** Organic posts counted in the month's medians. */
   posts: number;
   median_views: number | null;
   median_engagement_rate: number | null;
   growth_multiple: number | null;
+  /** Paid posts left out of this month's medians. 0 for most months; shown in
+   *  the chart tooltip only when non-zero, never as a series of its own. */
+  paid_excluded: number;
 }

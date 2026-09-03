@@ -1,5 +1,6 @@
 import { supabase, MOCK } from "./supabase";
 import { num } from "./format";
+import type { Database } from "./database.types";
 import {
   MOCK_ACCOUNT_SCORES,
   MOCK_BRANDS,
@@ -454,10 +455,33 @@ export async function fetchShareBrandId(token: string): Promise<number | null> {
 
 /* ---------- Monthly trend ---------- */
 
-function trendRow(r: Record<string, unknown>, brand: string): TrendRow {
+/**
+ * The row shapes the trend sources actually return, taken from the generated
+ * schema types rather than restated by hand. mx_share_trend and
+ * mx_label_share_trend gained paid_excluded as a trailing column; because these
+ * are mapped by name the append order is irrelevant, but pinning the types here
+ * means a future signature change fails the build instead of silently mapping
+ * to undefined.
+ */
+type TrendViewRow = Database["public"]["Views"]["mx_trend"]["Row"];
+type ShareTrendRow =
+  Database["public"]["Functions"]["mx_share_trend"]["Returns"][number];
+type LabelShareTrendRow =
+  Database["public"]["Functions"]["mx_label_share_trend"]["Returns"][number];
+
+type TrendRpcRow = TrendViewRow | ShareTrendRow | LabelShareTrendRow;
+
+function trendRow(r: TrendRpcRow, brand: string): TrendRow {
+  // brand_name and labels are on mx_trend and the label share only — a brand
+  // share is a single account, so those come from the caller instead. Reached
+  // through a cast because they are genuinely absent from one member.
+  const partial = r as Partial<TrendViewRow>;
   return {
-    brand_name: (r.brand_name as string) ?? brand,
-    labels: (r.labels as string[] | null) ?? null,
+    brand_name: partial.brand_name ?? brand,
+    labels: partial.labels ?? null,
+    // Everything below is read off the typed union, so if a regeneration ever
+    // drops one of these columns this stops compiling rather than quietly
+    // mapping to undefined.
     network: r.network as string,
     content_type: r.content_type as string,
     month: r.month as string,
@@ -465,6 +489,9 @@ function trendRow(r: Record<string, unknown>, brand: string): TrendRow {
     median_views: num(r.median_views),
     median_engagement_rate: num(r.median_engagement_rate),
     growth_multiple: num(r.growth_multiple),
+    // A month with no paid posts reports 0, not null. Coalescing anyway so a
+    // missing count reads as "none excluded", never as a spurious annotation.
+    paid_excluded: num(r.paid_excluded) ?? 0,
   };
 }
 
@@ -484,7 +511,7 @@ export function fetchTrend(): Promise<TrendRow[]> {
     trendCache = (async () => {
       const { data, error } = await supabase.from("mx_trend").select("*");
       fail(error);
-      return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
+      return (data ?? []).map((r: TrendViewRow) => trendRow(r, ""));
     })().catch((e) => {
       trendCache = null; // never cache a failure — the next mount retries
       throw e;
@@ -503,7 +530,7 @@ export async function fetchShareTrend(token: string): Promise<TrendRow[]> {
     p_token: token,
   });
   fail(error);
-  return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
+  return (data ?? []).map((r: ShareTrendRow) => trendRow(r, ""));
 }
 
 /** Label share route. Carries brand_name, since a label spans accounts. */
@@ -512,7 +539,7 @@ export async function fetchLabelShareTrend(token: string): Promise<TrendRow[]> {
     p_token: token,
   });
   fail(error);
-  return (data ?? []).map((r: Record<string, unknown>) => trendRow(r, ""));
+  return (data ?? []).map((r: LabelShareTrendRow) => trendRow(r, ""));
 }
 
 /* ---------- Share management (internal only) ---------- */

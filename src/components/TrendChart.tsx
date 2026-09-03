@@ -14,8 +14,11 @@ import type { TrendRow } from "../lib/types";
  *  - Each ticked metric gets its own panel with its own axis. Two measures of
  *    different scale never share a y-axis.
  *  - A missing month breaks the line. No interpolation, no zero-fill, no
- *    dotted bridge — a gap means fewer than three settled posts, which is not
- *    the same as a bad month.
+ *    dotted bridge — a gap means fewer than three settled organic posts, which
+ *    is not the same as a bad month.
+ *  - Every series is organic only. Paid posts are excluded upstream by the
+ *    trend functions; paid_excluded is how many were left out, and it is
+ *    reported in the tooltip rather than drawn as a line of its own.
  *  - Median views is log. On TikTok alone the range is 474 to 187,525; linear
  *    would flatten every account except the top one into the floor.
  */
@@ -57,19 +60,19 @@ const METRICS: {
 }[] = [
   {
     key: "median_views",
-    label: "Median views",
+    label: "Median organic views",
     log: true,
     fmt: (n) => compact(n),
   },
   {
     key: "median_engagement_rate",
-    label: "Median engagement %",
+    label: "Median organic engagement %",
     log: false,
     fmt: (n) => n.toFixed(1),
   },
   {
     key: "growth_multiple",
-    label: "Growth score",
+    label: "Organic growth score",
     log: false,
     refLine: 1,
     fmt: (n) => n.toFixed(2),
@@ -87,6 +90,8 @@ type Hover = {
   month: string;
   value: string;
   posts: number;
+  /** Paid posts kept out of this month's median. Rendered only when > 0. */
+  paidExcluded: number;
   x: number;
   y: number;
 } | null;
@@ -338,6 +343,15 @@ export default function TrendChart({
               <span style={{ color: "var(--muted)" }}>
                 {hover.posts} post{hover.posts === 1 ? "" : "s"}
               </span>
+              {hover.paidExcluded > 0 && (
+                <>
+                  <br />
+                  <span style={{ color: "var(--muted)" }}>
+                    {hover.paidExcluded} paid post
+                    {hover.paidExcluded === 1 ? "" : "s"} excluded
+                  </span>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -354,9 +368,10 @@ export default function TrendChart({
       )}
 
       <p className="note">
-        Medians for posts published in each month, by platform. A month appears
-        once it has settled for 30 days and carries at least three posts — gaps
-        are low-volume months, not zeros.
+        Organic medians for posts published in each month, by platform. Paid
+        posts are excluded. A month appears once it has settled for 30 days and
+        carries at least three organic posts — gaps are low-volume months, not
+        zeros.
       </p>
     </div>
   );
@@ -488,9 +503,23 @@ function Panel({
           const pts = months.map((mo, i) => {
             const row = byKey.get(`${s.name}|${mo}`);
             const v = row?.[metric.key];
-            return v == null ? null : { i, v: Number(v), posts: row!.posts, month: mo };
+            return v == null
+              ? null
+              : {
+                  i,
+                  v: Number(v),
+                  posts: row!.posts,
+                  paidExcluded: row!.paid_excluded,
+                  month: mo,
+                };
           });
-          const runs: { i: number; v: number; posts: number; month: string }[][] = [];
+          const runs: {
+            i: number;
+            v: number;
+            posts: number;
+            paidExcluded: number;
+            month: string;
+          }[][] = [];
           let run: typeof runs[number] = [];
           for (const p of pts) {
             if (p) run.push(p);
@@ -541,6 +570,7 @@ function Panel({
                       month: p.month,
                       value: metric.fmt(p.v),
                       posts: p.posts,
+                      paidExcluded: p.paidExcluded,
                       x: dot.left - root.left + dot.width / 2,
                       y: dot.top - root.top,
                     });

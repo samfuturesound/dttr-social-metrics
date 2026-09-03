@@ -188,6 +188,9 @@ export const MOCK_TREND: TrendRow[] = TREND_SHAPE.flatMap(
                 i === 0 || values[i - 1] == null
                   ? null
                   : Math.round((v / (values[i - 1] as number)) * 100) / 100,
+              // Mostly zero, so the tooltip's non-zero branch is exercised in
+              // mock mode without appearing on every point.
+              paid_excluded: (i * 5 + brand.length) % 7 === 0 ? 1 + (i % 2) : 0,
             },
           ],
     ),
