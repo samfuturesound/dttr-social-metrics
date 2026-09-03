@@ -40,9 +40,14 @@ success it returns a real Supabase session for the internal service account
 (`mx-internal@dttrsocialmetrics.app`), which the function creates and
 maintains itself. The session persists per browser.
 
-- Change the password by setting the `MX_SHARED_PASSWORD` edge function
-  secret — no redeploy needed. Until the secret is set, the fallback is
-  `DTTR` (baked into the function, so set the secret).
+- Set the password with the `MX_SHARED_PASSWORD` edge function secret — no
+  redeploy needed to change it later. **The secret is required.** If it is
+  unset or blank, `mx-login` fails closed: it returns 503 and accepts no
+  password at all, including the one you are thinking of.
+  There is deliberately no default. An earlier version fell back to a literal
+  that was printed here, which meant a deploy that had never been given the
+  secret looked exactly like a working one — and the password was public.
+  `src/__tests__/mx-login-fails-closed.test.ts` asserts it cannot come back.
 - All `mx_*` views, write RPCs and the `mx-streaming` bucket are restricted
   to the internal account via RLS + guards (`mx_is_internal()` /
   `mx_assert_internal()` in the database). Other authenticated users of the

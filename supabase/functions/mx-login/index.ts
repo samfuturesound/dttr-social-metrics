@@ -1,9 +1,14 @@
 // mx-login — shared-password sign-in for the DTTR social metrics page.
 //
-// Verifies the submitted password against the MX_SHARED_PASSWORD secret
-// (default "DTTR" until the secret is set) and, on success, returns a real
-// Supabase session for the internal service account. The browser never holds
-// the password check and the anon key alone cannot read any mx data.
+// Verifies the submitted password against the MX_SHARED_PASSWORD secret and, on
+// success, returns a real Supabase session for the internal service account. The
+// browser never holds the password check and the anon key alone cannot read any
+// mx data.
+//
+// There is no default password. If MX_SHARED_PASSWORD is unset or blank the
+// function fails closed with 503 and accepts nothing. It used to fall back to a
+// literal, so a deploy that had never been given the secret behaved exactly like
+// a correctly configured one — and the literal was published in the README.
 //
 // The service account (mx-internal@dttrsocialmetrics.app) is created and
 // maintained by this function itself via the admin API. Its password is
@@ -15,6 +20,7 @@
 // the shared password IS the auth check.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkSharedPassword } from "./auth.ts";
 
 const SERVICE_EMAIL = "mx-internal@dttrsocialmetrics.app";
 
@@ -29,18 +35,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const ab = enc.encode(a);
-  const bb = enc.encode(b);
-  let diff = ab.length ^ bb.length;
-  const len = Math.max(ab.length, bb.length);
-  for (let i = 0; i < len; i++) {
-    diff |= (ab[i % ab.length] ?? 0) ^ (bb[i % bb.length] ?? 0);
-  }
-  return diff === 0;
 }
 
 async function servicePassword(): Promise<string> {
@@ -66,13 +60,19 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { password } = await req.json();
-    const expected = (Deno.env.get("MX_SHARED_PASSWORD") ?? "DTTR").trim();
-    if (
-      typeof password !== "string" ||
-      !timingSafeEqual(password.trim(), expected)
-    ) {
-      await new Promise((r) => setTimeout(r, 500));
-      return json({ error: "Wrong password" }, 401);
+    const verdict = checkSharedPassword(
+      password,
+      Deno.env.get("MX_SHARED_PASSWORD"),
+    );
+    if (!verdict.ok) {
+      if (verdict.status === 503) {
+        // Loud, and not the caller's fault. Nothing here reveals a secret:
+        // there isn't one.
+        console.error("mx-login: MX_SHARED_PASSWORD is not set — refusing all sign-ins");
+      } else {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return json({ error: verdict.error }, verdict.status);
     }
 
     const url = Deno.env.get("SUPABASE_URL")!;
