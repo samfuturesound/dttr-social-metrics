@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchBrandSkipRates,
   fetchLabelPlatformRanks,
@@ -24,6 +24,7 @@ import SkipRateExplainer from "./SkipRateExplainer";
 import LabelShareManager from "./LabelShareManager";
 import { AppBar, TopStripe } from "./Chrome";
 import TrendChart from "./TrendChart";
+import AssistMark from "./AssistMark";
 
 const QUARTER_DAYS = 92;
 const PAGE_SIZE = 10;
@@ -57,6 +58,32 @@ export default function LabelPage({ slug }: { slug: string }) {
       });
   }, [label]);
 
+  /** Extracted from the mount effect so marking a post can refetch, the same
+   *  way BrandPage does. The medians that move belong to the individual
+   *  artists, not the label, so the rows have to be re-read rather than
+   *  patched: a post leaving its account's baseline changes that account's
+   *  other rows on this page too. Takes the label name because on mount it
+   *  runs before `label` state has settled. */
+  const reload = useCallback(async (labelName: string) => {
+    const [p, pr, skips, roster] = await Promise.all([
+      fetchLabelPosts(labelName),
+      fetchLabelPlatformRanks(labelName),
+      fetchBrandSkipRates(),
+      fetchSkipRoster(),
+    ]);
+    setPosts(p);
+    setPlatforms(pr);
+    setSkipRoster(roster);
+    setSkipByKey(
+      new Map(
+        skips.map((r) => [
+          `${r.brand_name}|${r.network}|${r.content_type}`,
+          r.median_skip_rate,
+        ]),
+      ),
+    );
+  }, []);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     setPosts(null);
@@ -70,26 +97,10 @@ export default function LabelPage({ slug }: { slug: string }) {
           return;
         }
         setLabel(found);
-        const [p, pr, skips, roster] = await Promise.all([
-          fetchLabelPosts(found.name),
-          fetchLabelPlatformRanks(found.name),
-          fetchBrandSkipRates(),
-          fetchSkipRoster(),
-        ]);
-        setPosts(p);
-        setPlatforms(pr);
-        setSkipRoster(roster);
-        setSkipByKey(
-          new Map(
-            skips.map((r) => [
-              `${r.brand_name}|${r.network}|${r.content_type}`,
-              r.median_skip_rate,
-            ]),
-          ),
-        );
+        await reload(found.name);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [slug]);
+  }, [slug, reload]);
 
   const byBrand = useMemo(() => {
     const m = new Map<string, BrandPlatformRanks[]>();
@@ -174,6 +185,11 @@ export default function LabelPage({ slug }: { slug: string }) {
 
   // On a label page every row is a different brand, so the brand leads the meta.
   const meta = (p: PostDetail, tail: string) => `${p.brand_name} · ${tail}`;
+
+  /** Bound to the resolved label. Only rendered where `label` is non-null. */
+  const reloadThis = useCallback(async () => {
+    if (label) await reload(label.name);
+  }, [label, reload]);
 
   const totalPosts = platforms.reduce((n, r) => n + r.posts, 0);
   const totalViews = platforms.reduce((n, r) => n + r.views, 0);
@@ -282,6 +298,14 @@ export default function LabelPage({ slug }: { slug: string }) {
                       p,
                       `${shortDate(p.published_at)} · ${compact(p.views)} views vs ${compact(p.median_views)} median`,
                     )}
+                    assist={
+                      <AssistMark
+                        externalId={p.external_id}
+                        isPaid={p.is_assisted}
+                        reload={reloadThis}
+                        showControl={true}
+                      />
+                    }
                   />
                 ))}
               </div>
@@ -308,6 +332,14 @@ export default function LabelPage({ slug }: { slug: string }) {
                         p,
                         `${age(p.age_days)} old · ${compact(p.views)} views vs ${compact(p.median_views)} median`,
                       )}
+                      assist={
+                        <AssistMark
+                          externalId={p.external_id}
+                          isPaid={p.is_assisted}
+                          reload={reloadThis}
+                          showControl={true}
+                        />
+                      }
                     />
                   ))}
                 </div>

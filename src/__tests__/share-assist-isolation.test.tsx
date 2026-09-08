@@ -65,16 +65,68 @@ describe("share routes carry no assist control", () => {
       const callsRpc = /\bsetPaid\b|mx_set_paid/.test(src(file));
       expect(callsRpc).toBe(false);
     });
+
+    test(`${file} carries no toggle markers of its own`, () => {
+      // Belt and braces for a control open-coded into the page rather than
+      // imported: the pressed state and the hint copy are what AssistMark
+      // renders, and neither belongs on an anon route.
+      const s = src(file);
+      expect(/aria-pressed/.test(s)).toBe(false);
+      expect(/excluded from this account/i.test(s)).toBe(false);
+      expect(/Mark paid/i.test(s)).toBe(false);
+    });
   }
 
   test("only internal routes import AssistMark", () => {
-    const allowed = new Set(["PostRow.tsx", "BrandPage.tsx"]);
-    const importers = ["PostRow.tsx", "BrandPage.tsx", ...SHARE_ROUTES].filter(
-      (f) => /from\s+["'].*AssistMark["']/.test(src(f)),
-    );
+    // LabelPage joined BrandPage and PostRow when marking reached label pages.
+    // A share route appearing here is the leak this whole file exists to catch.
+    const allowed = new Set(["PostRow.tsx", "BrandPage.tsx", "LabelPage.tsx"]);
+    const importers = [
+      "PostRow.tsx",
+      "BrandPage.tsx",
+      "LabelPage.tsx",
+      ...SHARE_ROUTES,
+    ].filter((f) => /from\s+["'].*AssistMark["']/.test(src(f)));
     for (const f of importers) expect(allowed.has(f)).toBe(true);
     // and the internal ones really do use it, so this test can't pass vacuously
-    expect(importers.length).toBe(2);
+    expect(importers.length).toBe(3);
+  });
+});
+
+/**
+ * The label pair specifically. LabelPage and LabelSharePage render the SAME
+ * BrandRow component, so nothing about the row itself distinguishes internal
+ * from public — the only thing that does is which caller passes the assist
+ * slot. That makes this pair the sharpest version of the risk, and worth
+ * asserting apart from the generic loop above.
+ */
+describe("the label pair diverges only at the call site", () => {
+  test("the internal label page passes the slot", () => {
+    const s = src("LabelPage.tsx");
+    expect(/from\s+["'].*AssistMark["']/.test(s)).toBe(true);
+    expect(/\bassist=\{/.test(s)).toBe(true);
+  });
+
+  test("the label share route passes nothing", () => {
+    const s = src("LabelSharePage.tsx");
+    expect(/from\s+["'].*AssistMark["']/.test(s)).toBe(false);
+    expect(/\bassist\s*=/.test(s)).toBe(false);
+  });
+
+  test("a label share row renders no control, assisted or not", () => {
+    // Rendered the way LabelSharePage renders Latest: brand-led meta, the
+    // multiple on the right, no slot.
+    const markup = renderToStaticMarkup(
+      <BrandRow
+        post={assistedPost}
+        right="10×"
+        meta="An Artist · 30 days old"
+      />,
+    );
+    expect(markup).not.toMatch(/Mark paid/i);
+    expect(markup).not.toMatch(/excluded from this account/i);
+    expect(markup).not.toMatch(/aria-pressed/);
+    expect(markup).not.toMatch(/<button/);
   });
 });
 
