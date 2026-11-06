@@ -807,6 +807,7 @@ export type Database = {
           brand_type: string | null
           content_type: string | null
           growth_multiple: number | null
+          is_provisional: boolean | null
           labels: string[] | null
           median_engagement_rate: number | null
           median_views: number | null
@@ -926,6 +927,7 @@ export type Database = {
           brand_name: string
           content_type: string
           growth_multiple: number
+          is_provisional: boolean
           median_engagement_rate: number
           median_views: number
           month: string
@@ -1043,6 +1045,7 @@ export type Database = {
         Returns: {
           content_type: string
           growth_multiple: number
+          is_provisional: boolean
           median_engagement_rate: number
           median_views: number
           month: string

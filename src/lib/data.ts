@@ -457,11 +457,11 @@ export async function fetchShareBrandId(token: string): Promise<number | null> {
 
 /**
  * The row shapes the trend sources actually return, taken from the generated
- * schema types rather than restated by hand. mx_share_trend and
- * mx_label_share_trend gained paid_excluded as a trailing column; because these
- * are mapped by name the append order is irrelevant, but pinning the types here
- * means a future signature change fails the build instead of silently mapping
- * to undefined.
+ * schema types rather than restated by hand. These signatures have now gained
+ * two trailing columns in turn — paid_excluded, then is_provisional; because
+ * these are mapped by name the append order is irrelevant, but pinning the
+ * types here means a future signature change fails the build instead of
+ * silently mapping to undefined.
  */
 type TrendViewRow = Database["public"]["Views"]["mx_trend"]["Row"];
 type ShareTrendRow =
@@ -492,6 +492,10 @@ function trendRow(r: TrendRpcRow, brand: string): TrendRow {
     // A month with no paid posts reports 0, not null. Coalescing anyway so a
     // missing count reads as "none excluded", never as a spurious annotation.
     paid_excluded: num(r.paid_excluded) ?? 0,
+    // Compared to true rather than coerced: the safe default for an absent
+    // flag is "settled", which draws a plain point. A loose coercion would
+    // turn any unexpected value into a settling warning on every month.
+    is_provisional: r.is_provisional === true,
   };
 }
 

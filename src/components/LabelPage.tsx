@@ -18,6 +18,14 @@ import type {
 } from "../lib/types";
 import { Section, Empty } from "./Section";
 import { BrandRow, Stat, platformLabel } from "./BrandRow";
+import PlatformFilter, { RollupStat } from "./PlatformFilter";
+import {
+  onPlatform,
+  platformFilterLabel,
+  platformLock,
+  platformMatches,
+  type PlatformFilterKey,
+} from "../lib/platforms";
 import RankedPlatformTable from "./RankedPlatformTable";
 import EngagementExplainer from "./EngagementExplainer";
 import SkipRateExplainer from "./SkipRateExplainer";
@@ -42,6 +50,7 @@ export default function LabelPage({ slug }: { slug: string }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
+  const [platform, setPlatform] = useState<PlatformFilterKey>("all");
 
   const [trend, setTrend] = useState<TrendRow[]>([]);
 
@@ -102,19 +111,36 @@ export default function LabelPage({ slug }: { slug: string }) {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [slug, reload]);
 
+  /* Both sources carry network and content_type per row, so the filter is a
+   * slice of what was already fetched. `posts` stays raw — it is the loading
+   * sentinel, and the brand-count tiles below are a separate problem. */
+  const filtered = platform !== "all";
+  const fPosts = useMemo(
+    () => onPlatform(posts ?? [], platform),
+    [posts, platform],
+  );
+  const fPlatforms = useMemo(
+    () => onPlatform(platforms, platform),
+    [platforms, platform],
+  );
+  const reelsInFilter = platformMatches(
+    { network: "instagram", content_type: "reels" },
+    platform,
+  );
+
   const byBrand = useMemo(() => {
     const m = new Map<string, BrandPlatformRanks[]>();
-    for (const r of platforms) {
+    for (const r of fPlatforms) {
       const arr = m.get(r.brand_name) ?? [];
       arr.push(r);
       m.set(r.brand_name, arr);
     }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [platforms]);
+  }, [fPlatforms]);
 
   const recent = useMemo(
-    () => (posts ?? []).filter((p) => p.age_days <= QUARTER_DAYS),
-    [posts],
+    () => fPosts.filter((p) => p.age_days <= QUARTER_DAYS),
+    [fPosts],
   );
   const leading = useMemo(
     () =>
@@ -125,15 +151,15 @@ export default function LabelPage({ slug }: { slug: string }) {
     [recent],
   );
   const mostViewed = useMemo(
-    () => [...(posts ?? [])].sort((a, b) => b.views - a.views).slice(0, 10),
-    [posts],
+    () => [...fPosts].sort((a, b) => b.views - a.views).slice(0, 10),
+    [fPosts],
   );
   const bestScoring = useMemo(
     () =>
-      [...(posts ?? [])]
+      [...fPosts]
         .sort((a, b) => b.views_multiple - a.views_multiple)
         .slice(0, 10),
-    [posts],
+    [fPosts],
   );
   const bestEngagement = useMemo(
     () =>
@@ -147,7 +173,7 @@ export default function LabelPage({ slug }: { slug: string }) {
   );
   const topEngRateGroups = useMemo(() => {
     const groups = new Map<string, PostDetail[]>();
-    for (const p of posts ?? []) {
+    for (const p of fPosts) {
       if (p.engagement_rate === null) continue;
       const key = `${p.network}|${p.content_type}`;
       const arr = groups.get(key) ?? [];
@@ -166,13 +192,13 @@ export default function LabelPage({ slug }: { slug: string }) {
         };
       })
       .sort((a, b) => b.total - a.total);
-  }, [posts]);
+  }, [fPosts]);
   const reels = useMemo(
     () =>
-      (posts ?? []).filter(
+      fPosts.filter(
         (p) => p.network === "instagram" && p.content_type === "reels",
       ),
-    [posts],
+    [fPosts],
   );
   const mostWatched = useMemo(
     () =>
@@ -191,8 +217,9 @@ export default function LabelPage({ slug }: { slug: string }) {
     if (label) await reload(label.name);
   }, [label, reload]);
 
-  const totalPosts = platforms.reduce((n, r) => n + r.posts, 0);
-  const totalViews = platforms.reduce((n, r) => n + r.views, 0);
+  // Platform-split at source, so these two DO follow the filter.
+  const totalPosts = fPlatforms.reduce((n, r) => n + r.posts, 0);
+  const totalViews = fPlatforms.reduce((n, r) => n + r.views, 0);
 
   return (
     <>
@@ -207,10 +234,29 @@ export default function LabelPage({ slug }: { slug: string }) {
 
         {label && label.brands > 0 && (
           <>
+            <PlatformFilter value={platform} onChange={setPlatform} />
+
             <div className="kpis">
-              <Stat value={String(label.brands)} label="Brands" />
-              <Stat value={String(label.artist_brands)} label="Artists" />
-              <Stat value={String(label.theme_brands)} label="Theme accounts" />
+              {/* Brand counts come from mx_labels, which counts brands
+                  carrying the label and knows nothing about platforms — under
+                  a selection these are not "brands on TikTok", so they are
+                  marked like the other rollups. The fourth tile is summed
+                  from the platform rows and does follow the filter. */}
+              <RollupStat
+                value={String(label.brands)}
+                label="Brands"
+                filtered={filtered}
+              />
+              <RollupStat
+                value={String(label.artist_brands)}
+                label="Artists"
+                filtered={filtered}
+              />
+              <RollupStat
+                value={String(label.theme_brands)}
+                label="Theme accounts"
+                filtered={filtered}
+              />
               <Stat
                 value={totalViews > 0 ? compact(totalViews) : String(totalPosts)}
                 label={totalViews > 0 ? "Views" : "Posts"}
@@ -315,15 +361,15 @@ export default function LabelPage({ slug }: { slug: string }) {
           <Section
             id={`label-${slug}-latest`}
             title="Latest posts"
-            count={posts.length}
+            count={fPosts.length}
             subtitle="Everything published across this label's brands, newest first."
           >
-            {posts.length === 0 ? (
+            {fPosts.length === 0 ? (
               <Empty>Nothing here yet.</Empty>
             ) : (
               <>
                 <div>
-                  {posts.slice(0, Math.min(latestVisible, PAGE_MAX)).map((p) => (
+                  {fPosts.slice(0, Math.min(latestVisible, PAGE_MAX)).map((p) => (
                     <BrandRow
                       key={p.external_id}
                       post={p}
@@ -343,7 +389,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                     />
                   ))}
                 </div>
-                {latestVisible < Math.min(posts.length, PAGE_MAX) && (
+                {latestVisible < Math.min(fPosts.length, PAGE_MAX) && (
                   <button
                     className="lnk"
                     onClick={() =>
@@ -351,7 +397,7 @@ export default function LabelPage({ slug }: { slug: string }) {
                     }
                   >
                     Load more (
-                    {Math.min(posts.length, PAGE_MAX) - latestVisible} more)
+                    {Math.min(fPosts.length, PAGE_MAX) - latestVisible} more)
                   </button>
                 )}
               </>
@@ -475,10 +521,14 @@ export default function LabelPage({ slug }: { slug: string }) {
             title="Most watched through"
             timescale="Instagram reels only"
             count={mostWatched.length}
-            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reels.length > 0 ? ` From ${reels.filter((p) => p.completion_pct !== null).length} of ${reels.length} reels.` : ""}`}
+            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reelsInFilter && reels.length > 0 ? ` From ${reels.filter((p) => p.completion_pct !== null).length} of ${reels.length} reels.` : ""}`}
           >
             {mostWatched.length === 0 ? (
-              <Empty>No video duration data for these accounts.</Empty>
+              <Empty>
+                {reelsInFilter
+                  ? "No video duration data for these accounts."
+                  : `Instagram reels are outside the ${platformFilterLabel(platform)} filter.`}
+              </Empty>
             ) : (
               <div>
                 {mostWatched.map((p) => (
@@ -496,7 +546,11 @@ export default function LabelPage({ slug }: { slug: string }) {
             )}
           </Section>
 
-          <TrendChart rows={trend} showArtistSelector />
+          <TrendChart
+            rows={trend}
+            showArtistSelector
+            platformKey={platformLock(platform)}
+          />
         </>
       )}
       </div>

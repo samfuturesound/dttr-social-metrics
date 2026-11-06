@@ -94,6 +94,74 @@ describe("share routes carry no assist control", () => {
 });
 
 /**
+ * The page-level platform filter is INTERNAL ONLY — the dashboard, brand pages
+ * and label pages. That was a choice, not an oversight: a share link is a
+ * fixed, dead-end view of one account's figures, read by someone who did not
+ * build it, and a control that silently narrows the page to TikTok invites
+ * exactly the misreading the share route is most exposed to. Internal readers
+ * know what they filtered; an artist sent a link does not.
+ *
+ * Asserted structurally, the same way the paid-marking control is: the share
+ * pages must not import the filter module at all. A behavioural test would
+ * have to render each page with mocked RPCs, and the import is the thing that
+ * would actually go wrong — someone copying a section across from BrandPage.
+ *
+ * The chart's own platform tabs are a separate control and stay on the share
+ * routes, which is why those pages must also pass no platformKey: handing
+ * TrendChart a lock hides its tabs, leaving a share reader with no way to see
+ * another platform and no control that explains why.
+ */
+describe("share routes carry no page-level platform filter", () => {
+  for (const file of SHARE_ROUTES) {
+    test(`${file} does not import PlatformFilter`, () => {
+      expect(/from\s+["'].*PlatformFilter["']/.test(src(file))).toBe(false);
+    });
+
+    test(`${file} does not render the filter or its marks`, () => {
+      const s = src(file);
+      expect(/<PlatformFilter\b/.test(s)).toBe(false);
+      expect(/\bRollupStat\b|\bRollupNote\b/.test(s)).toBe(false);
+      // The marker copy itself, in case a tile were open-coded rather than
+      // imported — "all platforms" is a caveat about a filter that is not
+      // there, so it has no business on a share page.
+      expect(/all platforms/i.test(s)).toBe(false);
+    });
+
+    test(`${file} locks the chart to no platform`, () => {
+      // No platformKey prop, and no import of the helper that produces one.
+      expect(/\bplatformKey\s*=/.test(src(file))).toBe(false);
+      expect(/\bplatformLock\b/.test(src(file))).toBe(false);
+    });
+  }
+
+  test("only internal routes import PlatformFilter", () => {
+    const allowed = new Set([
+      "Dashboard.tsx",
+      "BrandPage.tsx",
+      "LabelPage.tsx",
+    ]);
+    const candidates = [...allowed, ...SHARE_ROUTES];
+    const importers = candidates.filter((f) =>
+      /from\s+["'].*PlatformFilter["']/.test(src(f)),
+    );
+    for (const f of importers) expect(allowed.has(f)).toBe(true);
+    // and all three internal pages really do carry it, so this cannot pass
+    // by the filter having been deleted everywhere.
+    expect(importers.length).toBe(3);
+  });
+
+  test("every internal route that filters also locks the chart", () => {
+    // Two controls for one choice is the bug this pairing prevents: a page
+    // filtered to TikTok with the chart still offering its own tabs.
+    for (const f of ["Dashboard.tsx", "BrandPage.tsx", "LabelPage.tsx"]) {
+      const s = src(f);
+      expect(/<TrendChart\b/.test(s)).toBe(true);
+      expect(/platformKey=\{platformLock\(platform\)\}/.test(s)).toBe(true);
+    }
+  });
+});
+
+/**
  * The label pair specifically. LabelPage and LabelSharePage render the SAME
  * BrandRow component, so nothing about the row itself distinguishes internal
  * from public — the only thing that does is which caller passes the assist

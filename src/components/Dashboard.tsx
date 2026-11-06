@@ -31,6 +31,8 @@ import type {
 } from "../lib/types";
 import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
+import PlatformFilter, { RollupNote, RollupStat } from "./PlatformFilter";
+import { onPlatform, platformLock, type PlatformFilterKey } from "../lib/platforms";
 import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
 import { SkipRatePanel } from "./SkipRateExplainer";
@@ -62,6 +64,7 @@ export default function Dashboard() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [explainer, setExplainer] = useState<null | "score" | "skip">(null);
   const [trend, setTrend] = useState<TrendRow[]>([]);
+  const [platform, setPlatform] = useState<PlatformFilterKey>("all");
 
   const load = useCallback(async () => {
     try {
@@ -117,37 +120,60 @@ export default function Dashboard() {
     load();
   }, [load]);
 
-  const latestArtists = useMemo(
-    () => recent.filter((p) => p.brand_type === "artist"),
-    [recent],
+  /* Every post section reads a platform-filtered copy. The views carry
+   * network and content_type already, so this is a slice of what was
+   * fetched, not another request. */
+  const filtered = platform !== "all";
+  const fLeading = useMemo(
+    () => (leading === null ? null : onPlatform(leading, platform)),
+    [leading, platform],
   );
-  const latestThemes = useMemo(
-    () => recent.filter((p) => p.brand_type === "theme"),
-    [recent],
-  );
-  const bestArtists = useMemo(
-    () => best.filter((p) => p.brand_type === "artist"),
-    [best],
-  );
-  const bestThemes = useMemo(
-    () => best.filter((p) => p.brand_type === "theme"),
-    [best],
+  const fRecent = useMemo(() => onPlatform(recent, platform), [recent, platform]);
+  const fBest = useMemo(() => onPlatform(best, platform), [best, platform]);
+  const fTopViews = useMemo(
+    () => onPlatform(topViews, platform),
+    [topViews, platform],
   );
 
-  /** All four figures come from data already fetched — no extra round trips. */
+  const latestArtists = useMemo(
+    () => fRecent.filter((p) => p.brand_type === "artist"),
+    [fRecent],
+  );
+  const latestThemes = useMemo(
+    () => fRecent.filter((p) => p.brand_type === "theme"),
+    [fRecent],
+  );
+  const bestArtists = useMemo(
+    () => fBest.filter((p) => p.brand_type === "artist"),
+    [fBest],
+  );
+  const bestThemes = useMemo(
+    () => fBest.filter((p) => p.brand_type === "theme"),
+    [fBest],
+  );
+
+  /**
+   * All four figures come from data already fetched — no extra round trips.
+   *
+   * The first two are post-level (mx_leading) and follow the filter. Views and
+   * accounts come from mx_account_scores, a brand-level rollup with no
+   * platform split, so they cannot: they are rendered through RollupStat,
+   * which greys them and says "all platforms" rather than passing an
+   * unfiltered number off as a filtered one.
+   */
   const kpis = useMemo(() => {
-    const topMult = (leading ?? []).reduce<number | null>(
+    const topMult = (fLeading ?? []).reduce<number | null>(
       (m, p) => (p.views_multiple != null && (m == null || p.views_multiple > m) ? p.views_multiple : m),
       null,
     );
     const views = scores.reduce((s, a) => s + (a.total_views ?? 0), 0);
     return {
-      leadingCount: leading?.length ?? 0,
+      leadingCount: fLeading?.length ?? 0,
       topMult,
       views,
       accounts: scores.length,
     };
-  }, [leading, scores]);
+  }, [fLeading, scores]);
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId, skipByBrand };
   const loaded = leading !== null;
@@ -185,6 +211,8 @@ export default function Dashboard() {
 
         {loaded && (
           <>
+            <PlatformFilter value={platform} onChange={setPlatform} />
+
             <div className="kpis">
               <div className="kpi">
                 <div className="k">Above baseline</div>
@@ -196,16 +224,19 @@ export default function Dashboard() {
                 <div className="v">{multiple(kpis.topMult)}</div>
                 <div className="m">best post right now</div>
               </div>
-              <div className="kpi">
-                <div className="k">Views</div>
-                <div className="v">{compact(kpis.views)}</div>
-                <div className="m">{windowLabel}</div>
-              </div>
-              <div className="kpi">
-                <div className="k">Accounts scored</div>
-                <div className="v">{kpis.accounts}</div>
-                <div className="m">10+ posts of history</div>
-              </div>
+              {/* mx_account_scores has no platform grain — see PlatformFilter. */}
+              <RollupStat
+                label="Views"
+                value={compact(kpis.views)}
+                meta={windowLabel}
+                filtered={filtered}
+              />
+              <RollupStat
+                label="Accounts scored"
+                value={String(kpis.accounts)}
+                meta="10+ posts of history"
+                filtered={filtered}
+              />
             </div>
 
             {labels.length > 0 && (
@@ -273,13 +304,17 @@ export default function Dashboard() {
               id="leading"
               title="Leading"
               timescale={windowLabel}
-              count={leading?.length ?? 0}
+              count={fLeading?.length ?? 0}
               defaultOpen
             >
-              {!leading || leading.length === 0 ? (
-                <Empty>Nothing is beating its baseline this morning.</Empty>
+              {!fLeading || fLeading.length === 0 ? (
+                <Empty>
+                  {filtered
+                    ? "Nothing on this platform is beating its baseline this morning."
+                    : "Nothing is beating its baseline this morning."}
+                </Empty>
               ) : (
-                <PostList listId="leading" posts={leading} canMark {...rowProps} reload={load} />
+                <PostList listId="leading" posts={fLeading} canMark {...rowProps} reload={load} />
               )}
             </Section>
 
@@ -339,14 +374,14 @@ export default function Dashboard() {
               id="most-viewed"
               title="Most viewed"
               timescale={windowLabel}
-              count={topViews.length}
+              count={fTopViews.length}
             >
-              {topViews.length === 0 ? (
+              {fTopViews.length === 0 ? (
                 <Empty>Nothing yet.</Empty>
               ) : (
                 <PostList
                   listId="most-viewed"
-                  posts={topViews}
+                  posts={fTopViews}
                   variant="reach"
                   {...rowProps}
                   reload={load}
@@ -357,10 +392,22 @@ export default function Dashboard() {
             <Section
               id="leaderboard"
               title="Account leaderboard"
-              timescale={windowLabel}
+              // On the summary line as well as in the body: this section is
+              // collapsed by default, and a row count sitting under a platform
+              // filter must not read as filtered while the caveat is folded
+              // away inside it.
+              timescale={
+                filtered ? `${windowLabel} · all platforms` : windowLabel
+              }
               count={scores.length}
               subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
             >
+              <RollupNote filtered={filtered}>
+                Account scores come from a brand-level rollup with no platform
+                split, so this table is every platform whatever the filter
+                says. Narrowing it would mean re-scoring per platform in the
+                database, not slicing rows here.
+              </RollupNote>
               {scores.length === 0 ? (
                 <Empty>Nothing scored yet.</Empty>
               ) : (
@@ -410,7 +457,11 @@ export default function Dashboard() {
               )}
             </Section>
 
-            <TrendChart rows={trend} showArtistSelector />
+            <TrendChart
+              rows={trend}
+              showArtistSelector
+              platformKey={platformLock(platform)}
+            />
           </>
         )}
       </div>

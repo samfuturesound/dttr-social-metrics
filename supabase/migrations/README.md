@@ -156,6 +156,32 @@ the only roles that matter. The edge functions, the pg_cron jobs and the externa
 Make scenarios all arrive as `service_role`, and none of them are exercised by
 opening the dashboard.
 
+## The monthly trend settle rule, and why the flag replaced the filter
+
+`metrics.monthly_trend` originally refused to plot a month until it was 30 days
+past its **end** (`…093521`). The reasoning held: views are effectively frozen
+30 days after publication (measured: TikTok +0.7%, IG posts +0.1%, IG reels
++0.2% over 24 days for posts already 30d+ old, against +35/34/53% for posts
+under 14 days), so an unsettled month always droops and reads as a decline that
+is not there.
+
+The cost was invisibility. On 6 November the newest point was September, while
+206 October posts across 10 brands sat in the database unplotted.
+
+`…123103_monthly_trend_provisional_months` keeps the measurement and drops the
+filter: a month is plotted once it has **ended**, and one whose end is under 30
+days ago comes back with `is_provisional = true`. The honesty that the old rule
+bought by hiding data is now bought by marking it — the frontend draws those
+points dashed, labels the axis and the table *settling*, and says in words that
+the median will rise.
+
+**That makes the flag load-bearing.** Render a provisional point like a settled
+one and the chart is back to showing a fake dip, with no 30-day rule left to
+prevent it. `is_provisional` is appended last in the view and in both share
+functions, because `CREATE OR REPLACE VIEW` can add a trailing column but not
+insert one mid-list; the share functions had to be dropped and recreated, since
+their return type changed.
+
 ## Three history rows with no file here
 
 The remote history table on the new project also lists

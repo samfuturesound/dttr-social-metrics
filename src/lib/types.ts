@@ -310,8 +310,11 @@ export interface AiAnswer {
  * from the name it already holds rather than making another call.
  *
  * A month is absent from the payload entirely when it carried fewer than three
- * settled posts. That is a real gap, not a zero, and the chart must not bridge
+ * organic posts. That is a real gap, not a zero, and the chart must not bridge
  * it — see TrendChart.
+ *
+ * The window is the last six ENDED months. The youngest one or two of those
+ * have not finished accruing views, which is what is_provisional marks.
  */
 export interface TrendRow {
   brand_name: string;
@@ -329,4 +332,13 @@ export interface TrendRow {
   /** Paid posts left out of this month's medians. 0 for most months; shown in
    *  the chart tooltip only when non-zero, never as a series of its own. */
   paid_excluded: number;
+  /**
+   * The month has ended, but ended less than 30 days ago — views are still
+   * accumulating on its youngest posts, so this median will drift upward.
+   *
+   * Never render a provisional point like a settled one. Unmarked, it reads as
+   * a decline that isn't real, which is exactly why the old rule hid these
+   * months outright. TrendChart draws them dashed and says so in words.
+   */
+  is_provisional: boolean;
 }

@@ -127,6 +127,56 @@ the same brand and period re-read it at cache rates. Payload sizes: one brand
 
 Requires the `ANTHROPIC_API_KEY` secret (shared with the vision function).
 
+## Platform filter
+
+Every internal page — dashboard, `/brand/[name]`, `/label/[slug]` — carries a
+page-level platform control: **All / TikTok / Instagram posts / Instagram
+reels**, defaulting to All. It narrows every section below it (Leading, Latest,
+Best, Most viewed, the platform tables and the trend chart) by slicing data
+already fetched; no view, RPC or round trip changes. The vocabulary lives in
+[src/lib/platforms.ts](src/lib/platforms.ts) and the control in
+[src/components/PlatformFilter.tsx](src/components/PlatformFilter.tsx).
+
+When a platform is selected the trend chart's own platform tabs disappear and
+the chart follows the page — two controls for one choice, with one of them
+silently losing, is worse than either alone. Under **All** the chart keeps its
+tabs, because it can never pool platforms even when the rest of the page shows
+everything.
+
+**Three figures cannot honour it, and say so rather than lying.**
+`mx_brand_summary` (the brand page header), `mx_account_scores` (the dashboard
+leaderboard and its Views / Accounts tiles) and `mx_labels` (the label page's
+brand counts) are brand-level rollups with no platform column — nothing
+client-side can narrow them. Those figures stay on screen, greyed, labelled
+*all platforms*. They are not hidden: a number that vanishes teaches nothing
+about why, and hiding would empty a brand page's whole header exactly when
+someone is comparing platforms. Anything fed by those three sources must render
+through `RollupStat` or `RollupNote`.
+
+**The filter is internal-only.** Share routes get no page control:
+`src/__tests__/share-assist-isolation.test.tsx` asserts neither share page
+imports it, passes `platformKey` to the chart, or carries the *all platforms*
+marker — the same structural guard that keeps the paid-marking control off
+those pages.
+
+## Monthly trend, and months that are still settling
+
+The chart plots the last **six ended months**. It used to require a month to be
+30 days past its end, which hid the two most recent months — on 6 November the
+newest point was September, with 206 October posts already collected and
+invisible.
+
+A month whose end is less than 30 days ago arrives flagged `is_provisional`:
+its youngest posts are still accruing views, so its median will drift upward.
+Those points, and the segments leading into them, are **dashed**; the axis
+label and the Table view say *settling*; the tooltip says so in words; and one
+line under the chart names the month. An unmarked provisional point reads as a
+decline that is not there, which is the whole reason the strict rule existed —
+see `supabase/migrations/README.md`.
+
+A series with a single month is drawn as a deliberate, larger marker with a
+legend entry rather than a bare 4px dot, which read as a rendering failure.
+
 ## Data notes
 
 - Flagged posts come from `mx_flagged_interim` (median-based, works on

@@ -17,7 +17,15 @@ import type {
   TrendRow,
 } from "../lib/types";
 import { Section, Empty } from "./Section";
-import { BrandRow, LabelTags, Stat, platformLabel } from "./BrandRow";
+import { BrandRow, LabelTags, platformLabel } from "./BrandRow";
+import PlatformFilter, { RollupStat } from "./PlatformFilter";
+import {
+  onPlatform,
+  platformFilterLabel,
+  platformLock,
+  platformMatches,
+  type PlatformFilterKey,
+} from "../lib/platforms";
 import RankedPlatformTable from "./RankedPlatformTable";
 import { AppBar, TopStripe } from "./Chrome";
 import TrendChart from "./TrendChart";
@@ -40,6 +48,7 @@ export default function BrandPage({ brand }: { brand: string }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [latestVisible, setLatestVisible] = useState(PAGE_SIZE);
+  const [platform, setPlatform] = useState<PlatformFilterKey>("all");
 
   const [trend, setTrend] = useState<TrendRow[]>([]);
 
@@ -89,9 +98,28 @@ export default function BrandPage({ brand }: { brand: string }) {
     reload();
   }, [brand, reload]);
 
+  /* Every section below reads the filtered copy. mx_post_detail carries
+   * network and content_type on each row, so this is a slice of what was
+   * already fetched. `posts` itself stays raw: it is the loading sentinel. */
+  const filtered = platform !== "all";
+  const fPosts = useMemo(
+    () => onPlatform(posts ?? [], platform),
+    [posts, platform],
+  );
+  const fPlatforms = useMemo(
+    () => onPlatform(platforms, platform),
+    [platforms, platform],
+  );
+  /** Reels are an Instagram format, so a TikTok selection excludes the
+   *  watch-time section outright rather than leaving it empty-looking. */
+  const reelsInFilter = platformMatches(
+    { network: "instagram", content_type: "reels" },
+    platform,
+  );
+
   const recent = useMemo(
-    () => (posts ?? []).filter((p) => p.age_days <= QUARTER_DAYS),
-    [posts],
+    () => fPosts.filter((p) => p.age_days <= QUARTER_DAYS),
+    [fPosts],
   );
   const leading = useMemo(
     () =>
@@ -102,15 +130,15 @@ export default function BrandPage({ brand }: { brand: string }) {
     [recent],
   );
   const mostViewed = useMemo(
-    () => [...(posts ?? [])].sort((a, b) => b.views - a.views).slice(0, 10),
-    [posts],
+    () => [...fPosts].sort((a, b) => b.views - a.views).slice(0, 10),
+    [fPosts],
   );
   const bestScoring = useMemo(
     () =>
-      [...(posts ?? [])]
+      [...fPosts]
         .sort((a, b) => b.views_multiple - a.views_multiple)
         .slice(0, 10),
-    [posts],
+    [fPosts],
   );
   const bestEngagement = useMemo(
     () =>
@@ -127,7 +155,7 @@ export default function BrandPage({ brand }: { brand: string }) {
   // within platform+format only — never one mixed list.
   const topEngRateGroups = useMemo(() => {
     const groups = new Map<string, PostDetail[]>();
-    for (const p of posts ?? []) {
+    for (const p of fPosts) {
       if (p.engagement_rate === null) continue;
       const key = `${p.network}|${p.content_type}`;
       const arr = groups.get(key) ?? [];
@@ -146,10 +174,10 @@ export default function BrandPage({ brand }: { brand: string }) {
         };
       })
       .sort((a, b) => b.total - a.total);
-  }, [posts]);
+  }, [fPosts]);
   const mostWatched = useMemo(
     () =>
-      (posts ?? [])
+      fPosts
         .filter(
           (p) =>
             p.network === "instagram" &&
@@ -158,7 +186,7 @@ export default function BrandPage({ brand }: { brand: string }) {
         )
         .sort((a, b) => (b.completion_pct ?? 0) - (a.completion_pct ?? 0))
         .slice(0, 5),
-    [posts],
+    [fPosts],
   );
   const reelsPlatform = platforms.find(
     (p) => p.network === "instagram" && p.content_type === "reels",
@@ -183,23 +211,45 @@ export default function BrandPage({ brand }: { brand: string }) {
           </p>
         </div>
 
+        {/* Above the header, because it moves the header too. Held back
+            until the first load lands: there is nothing to narrow before
+            then, and an error state should not offer a control. */}
+        {posts !== null && !error && (
+          <PlatformFilter value={platform} onChange={setPlatform} />
+        )}
+
         {summary && (
           <>
+            {/* The whole header comes from mx_brand_summary, which is a
+                brand-level rollup with no platform split — every tile here is
+                unfilterable, so every tile is marked. See PlatformFilter. */}
             <div className="kpis">
-              <Stat value={String(summary.posts_all_time)} label="Posts" meta="all time" />
-              <Stat value={compact(summary.views_all_time)} label="Views" meta="all time" />
-              <Stat
+              <RollupStat
+                value={String(summary.posts_all_time)}
+                label="Posts"
+                meta="all time"
+                filtered={filtered}
+              />
+              <RollupStat
+                value={compact(summary.views_all_time)}
+                label="Views"
+                meta="all time"
+                filtered={filtered}
+              />
+              <RollupStat
                 value={`${summary.posts_3m} · ${compact(summary.views_3m)}`}
                 label="Posts · views"
                 meta="last 3 months"
+                filtered={filtered}
               />
-              <Stat
+              <RollupStat
                 value={
                   summary.first_post && summary.last_post
                     ? `${monthYear(summary.first_post)} – ${monthYear(summary.last_post)}`
                     : "—"
                 }
                 label="First – last post"
+                filtered={filtered}
               />
             </div>
 
@@ -207,7 +257,7 @@ export default function BrandPage({ brand }: { brand: string }) {
               <div className="eyebrow">
                 <span>Per platform, with roster position</span>
               </div>
-              <RankedPlatformTable rows={platforms} skipByKey={skipByKey} />
+              <RankedPlatformTable rows={fPlatforms} skipByKey={skipByKey} />
               <p className="note">
                 &ldquo;All time&rdquo; here means since measurements began —
                 first post is stated above — not the account&rsquo;s whole life.
@@ -265,15 +315,15 @@ export default function BrandPage({ brand }: { brand: string }) {
           <Section
             id="brand-latest"
             title="Latest posts"
-            count={posts.length}
+            count={fPosts.length}
             subtitle="Everything published, newest first."
           >
-            {posts.length === 0 ? (
+            {fPosts.length === 0 ? (
               <Empty>Nothing here yet.</Empty>
             ) : (
               <>
                 <div>
-                  {posts
+                  {fPosts
                     .slice(0, Math.min(latestVisible, PAGE_MAX))
                     .map((p) => (
                       <BrandRow
@@ -292,7 +342,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                       />
                     ))}
                 </div>
-                {latestVisible < Math.min(posts.length, PAGE_MAX) && (
+                {latestVisible < Math.min(fPosts.length, PAGE_MAX) && (
                   <button
                     className="lnk"
                     onClick={() =>
@@ -300,7 +350,7 @@ export default function BrandPage({ brand }: { brand: string }) {
                     }
                   >
                     Load more (
-                    {Math.min(posts.length, PAGE_MAX) - latestVisible} more)
+                    {Math.min(fPosts.length, PAGE_MAX) - latestVisible} more)
                   </button>
                 )}
               </>
@@ -412,10 +462,14 @@ export default function BrandPage({ brand }: { brand: string }) {
             title="Most watched through"
             timescale="Instagram reels only"
             count={mostWatched.length}
-            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reelsPlatform ? ` From ${reelsPlatform.completion_available} of ${reelsPlatform.posts} reels.` : ""}`}
+            subtitle={`Average watch time as a share of video length. Only Instagram reels report watch time. TikTok doesn't expose it, and Metricool doesn't return video length for every reel — so this covers a subset even within Instagram.${reelsInFilter && reelsPlatform ? ` From ${reelsPlatform.completion_available} of ${reelsPlatform.posts} reels.` : ""}`}
           >
             {mostWatched.length === 0 ? (
-              <Empty>No video duration data for this account.</Empty>
+              <Empty>
+                {reelsInFilter
+                  ? "No video duration data for this account."
+                  : `Instagram reels are outside the ${platformFilterLabel(platform)} filter.`}
+              </Empty>
             ) : (
               <div>
                 {mostWatched.map((p) => (
@@ -430,7 +484,11 @@ export default function BrandPage({ brand }: { brand: string }) {
             )}
           </Section>
 
-          <TrendChart rows={trend} showArtistSelector={false} />
+          <TrendChart
+            rows={trend}
+            showArtistSelector={false}
+            platformKey={platformLock(platform)}
+          />
         </>
       )}
       </div>

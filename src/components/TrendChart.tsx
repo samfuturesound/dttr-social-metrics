@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { compact } from "../lib/format";
+import { PLATFORMS } from "../lib/platforms";
 import type { TrendRow } from "../lib/types";
 
 /**
@@ -14,8 +15,16 @@ import type { TrendRow } from "../lib/types";
  *  - Each ticked metric gets its own panel with its own axis. Two measures of
  *    different scale never share a y-axis.
  *  - A missing month breaks the line. No interpolation, no zero-fill, no
- *    dotted bridge — a gap means fewer than three settled organic posts, which
- *    is not the same as a bad month.
+ *    dotted bridge — a gap means fewer than three organic posts, which is not
+ *    the same as a bad month.
+ *  - A month is plotted once it has ENDED. The youngest months have not
+ *    finished accruing views, so they arrive flagged is_provisional and are
+ *    drawn dashed, with the reason said in words under the chart. Drawing them
+ *    like settled months would show a dip that isn't there; hiding them, which
+ *    is what the old 30-day rule did, kept two months of real data invisible.
+ *  - A series with a single month is still a series. It gets a deliberate,
+ *    larger marker and a legend entry, because one small dot alone on an axis
+ *    reads as a bug rather than as "this account has one month of data".
  *  - Every series is organic only. Paid posts are excluded upstream by the
  *    trend functions; paid_excluded is how many were left out, and it is
  *    reported in the tooltip rather than drawn as a line of its own.
@@ -42,12 +51,6 @@ const PALETTE = [
   "#e34948", // red
 ];
 const MAX_SERIES = PALETTE.length;
-
-const PLATFORMS = [
-  { key: "tiktok|posts", label: "TikTok" },
-  { key: "instagram|posts", label: "Instagram posts" },
-  { key: "instagram|reels", label: "Instagram reels" },
-] as const;
 
 type MetricKey = "median_views" | "median_engagement_rate" | "growth_multiple";
 
@@ -85,6 +88,22 @@ const MONTH_LABEL = (iso: string) =>
     { month: "short" },
   );
 
+const MONTH_FULL = (iso: string) =>
+  new Date(iso + (iso.length === 10 ? "T00:00:00" : "")).toLocaleDateString(
+    "en-GB",
+    { month: "long" },
+  );
+
+/** "October is" / "September and October are" — the settling line's subject. */
+function settlingSubject(months: string[]): string {
+  const names = months.map(MONTH_FULL);
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${list} ${names.length === 1 ? "is" : "are"}`;
+}
+
 type Hover = {
   artist: string;
   month: string;
@@ -92,20 +111,42 @@ type Hover = {
   posts: number;
   /** Paid posts kept out of this month's median. Rendered only when > 0. */
   paidExcluded: number;
+  /** Month ended but still accruing views — the tooltip says so. */
+  provisional: boolean;
   x: number;
   y: number;
+  /** Width of the chart area, to keep the box on it. Carried on the hover
+   *  because it is measured at the same moment as the point's position. */
+  rootWidth: number;
 } | null;
+
+/** Caps the tooltip. Wide enough for the settling sentence on two or three
+ *  lines, narrow enough to sit beside a point near either edge. */
+const TIP_W = 230;
 
 export default function TrendChart({
   rows,
   showArtistSelector,
+  platformKey = null,
 }: {
   rows: TrendRow[];
   /** Dashboard and label pages only. A brand page and both share routes are
    *  a single account, so there is nothing to select between. */
   showArtistSelector: boolean;
+  /**
+   * The page-level platform filter's selection, where the page has one.
+   *
+   * Non-null locks the chart to that platform and hides the chart's own
+   * platform tabs: two controls for one choice is a trap, and the page control
+   * is the one that also moves every other section. Null (share routes, and
+   * internal pages set to All) leaves the chart its own tabs, because the
+   * chart can never pool platforms even when the rest of the page does.
+   */
+  platformKey?: string | null;
 }) {
-  const [platform, setPlatform] = useState<string>(PLATFORMS[0].key);
+  const [ownPlatform, setOwnPlatform] = useState<string>(PLATFORMS[0].key);
+  const locked = platformKey != null;
+  const platform = platformKey ?? ownPlatform;
   const [metrics, setMetrics] = useState<MetricKey[]>(["median_views"]);
   const [selByPlatform, setSelByPlatform] = useState<Record<string, string[]>>(
     {},
@@ -153,6 +194,46 @@ export default function TrendChart({
     [artists, selected],
   );
 
+  /** How many months each visible account has on this platform. One is the
+   *  case the chart has to treat deliberately rather than leave to a 4px dot;
+   *  it also decides whether the legend is needed on a single-account route. */
+  const monthsPerSeries = useMemo(() => {
+    const names = new Set(visible.map((v) => v.name));
+    const m = new Map<string, Set<string>>();
+    for (const r of platformRows) {
+      if (!names.has(r.brand_name)) continue;
+      const set = m.get(r.brand_name) ?? new Set<string>();
+      set.add(r.month);
+      m.set(r.brand_name, set);
+    }
+    return new Map([...m].map(([name, set]) => [name, set.size]));
+  }, [platformRows, visible]);
+
+  const hasSinglePointSeries = useMemo(
+    () => [...monthsPerSeries.values()].some((n) => n === 1),
+    [monthsPerSeries],
+  );
+
+  /** Which months are still settling. A property of the calendar, so taken
+   *  from the whole payload rather than per platform. */
+  const provisionalMonths = useMemo(
+    () => new Set(rows.filter((r) => r.is_provisional).map((r) => r.month)),
+    [rows],
+  );
+
+  /** Provisional months actually drawn: this platform, these accounts. The
+   *  settling line is a caption for what is on screen, not for the payload. */
+  const settlingMonths = useMemo(() => {
+    const names = new Set(visible.map((v) => v.name));
+    return [
+      ...new Set(
+        platformRows
+          .filter((r) => r.is_provisional && names.has(r.brand_name))
+          .map((r) => r.month),
+      ),
+    ].sort();
+  }, [platformRows, visible]);
+
   function toggleArtist(name: string) {
     const next = selected.includes(name)
       ? selected.filter((n) => n !== name)
@@ -171,11 +252,16 @@ export default function TrendChart({
   if (rows.length === 0) return null;
 
   const activeMetrics = METRICS.filter((m) => metrics.includes(m.key));
+  const platformName =
+    PLATFORMS.find((p) => p.key === platform)?.label ?? platform;
 
   return (
     <div className="card">
       <div className="eyebrow">
-        <span>Monthly trend</span>
+        {/* Locked, the platform tabs are gone, so the heading has to carry
+            what is being shown — otherwise the panels name a metric and
+            nothing on the card names the platform. */}
+        <span>Monthly trend{locked ? ` · ${platformName}` : ""}</span>
         <button
           className="btn x"
           onClick={() => setView((v) => (v === "chart" ? "table" : "chart"))}
@@ -184,19 +270,22 @@ export default function TrendChart({
         </button>
       </div>
 
-      {/* 1 — platform. Single select; pooling them would be a lie. */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-        {PLATFORMS.map((p) => (
-          <button
-            key={p.key}
-            className={`tab${platform === p.key ? " on" : ""}`}
-            onClick={() => setPlatform(p.key)}
-            aria-pressed={platform === p.key}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      {/* 1 — platform. Single select; pooling them would be a lie. Folded
+          into the page-level filter when the page has one set. */}
+      {!locked && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+          {PLATFORMS.map((p) => (
+            <button
+              key={p.key}
+              className={`tab${platform === p.key ? " on" : ""}`}
+              onClick={() => setOwnPlatform(p.key)}
+              aria-pressed={platform === p.key}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 2 — metrics. Multi-select, one panel each. */}
       <div className="lab-mono" style={{ marginBottom: 6 }}>
@@ -279,9 +368,11 @@ export default function TrendChart({
         </>
       )}
 
-      {/* Legend for routes with no selector but more than one account —
-          identity must never be carried by colour alone. */}
-      {!showArtistSelector && visible.length > 1 && (
+      {/* Legend for routes with no selector. Needed whenever more than one
+          account is drawn — identity must never be carried by colour alone —
+          and also for a lone single-month series, where naming the account is
+          what makes one dot legible as that account's only month. */}
+      {!showArtistSelector && (visible.length > 1 || hasSinglePointSeries) && (
         <div style={{ display: "flex", gap: "6px 16px", flexWrap: "wrap", marginBottom: 14 }}>
           {visible.map((a) => (
             <span
@@ -299,6 +390,9 @@ export default function TrendChart({
                 }}
               />
               {a.name}
+              {monthsPerSeries.get(a.name) === 1 && (
+                <span style={{ color: "var(--muted)" }}>· one month</span>
+              )}
             </span>
           ))}
         </div>
@@ -317,6 +411,7 @@ export default function TrendChart({
               months={months}
               rows={platformRows}
               series={visible}
+              provisionalMonths={provisionalMonths}
               onHover={setHover}
             />
           ))}
@@ -324,8 +419,22 @@ export default function TrendChart({
             <div
               style={{
                 position: "absolute",
-                left: Math.max(0, hover.x - 70),
-                top: hover.y - 62,
+                // Clamped at both edges. Without the right-hand clamp the
+                // last month's box is pinned against the container and its
+                // shrink-to-fit width collapses to a few characters.
+                left: Math.min(
+                  Math.max(0, hover.x - 70),
+                  Math.max(0, hover.rootWidth - TIP_W),
+                ),
+                // Anchored by its own bottom edge rather than a measured
+                // offset, so the settling line can make the box taller
+                // without pushing it down over the point it describes.
+                top: hover.y - 10,
+                transform: "translateY(-100%)",
+                // max-content rather than shrink-to-fit: the available width
+                // at this position must not decide how the sentence wraps.
+                width: "max-content",
+                maxWidth: TIP_W,
                 pointerEvents: "none",
                 background: "var(--card)",
                 border: "2px solid var(--ink)",
@@ -352,6 +461,19 @@ export default function TrendChart({
                   </span>
                 </>
               )}
+              {hover.provisional && (
+                // Wraps, unlike the figures above it — a nowrap sentence
+                // this long would run the tooltip off the card.
+                <div
+                  style={{
+                    marginTop: 4,
+                    whiteSpace: "normal",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  Still settling — views are accumulating and this will rise.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -363,15 +485,27 @@ export default function TrendChart({
             months={months}
             rows={platformRows}
             series={visible}
+            provisionalMonths={provisionalMonths}
           />
         ))
       )}
 
+      {/* The plain-words version of the dashed treatment. Ink, not muted:
+          it is a caveat about what the chart is showing, not a footnote. */}
+      {settlingMonths.length > 0 && (
+        <p className="note" style={{ color: "var(--ink)" }}>
+          {settlingSubject(settlingMonths)} still settling and will rise over
+          the next few weeks.
+        </p>
+      )}
+
       <p className="note">
         Organic medians for posts published in each month, by platform. Paid
-        posts are excluded. A month appears once it has settled for 30 days and
-        carries at least three organic posts — gaps are low-volume months, not
-        zeros.
+        posts are excluded. A month appears once it has ended and carries at
+        least three organic posts — gaps are low-volume months, not zeros.
+        Dashed points, and the segments leading to them, are months that ended
+        less than 30 days ago: their views are still accumulating, so those
+        medians will rise.
       </p>
     </div>
   );
@@ -388,12 +522,14 @@ function Panel({
   months,
   rows,
   series,
+  provisionalMonths,
   onHover,
 }: {
   metric: (typeof METRICS)[number];
   months: string[];
   rows: TrendRow[];
   series: { name: string; colour: string | null }[];
+  provisionalMonths: Set<string>;
   onHover: (h: Hover) => void;
 }) {
   const byKey = useMemo(() => {
@@ -484,7 +620,8 @@ function Panel({
           />
         )}
 
-        {/* x labels */}
+        {/* x labels. A settling month says so on the axis too, so the dashes
+            are not the only cue — the same reason the Table view marks it. */}
         {months.map((mo, i) => (
           <text
             key={mo}
@@ -495,6 +632,12 @@ function Panel({
             fill="var(--muted)"
           >
             {MONTH_LABEL(mo)}
+            {provisionalMonths.has(mo) && (
+              <tspan fontSize={9} dy={0}>
+                {" "}
+                settling
+              </tspan>
+            )}
           </text>
         ))}
 
@@ -510,6 +653,7 @@ function Panel({
                   v: Number(v),
                   posts: row!.posts,
                   paidExcluded: row!.paid_excluded,
+                  provisional: row!.is_provisional,
                   month: mo,
                 };
           });
@@ -518,6 +662,7 @@ function Panel({
             v: number;
             posts: number;
             paidExcluded: number;
+            provisional: boolean;
             month: string;
           }[][] = [];
           let run: typeof runs[number] = [];
@@ -530,52 +675,82 @@ function Panel({
           }
           if (run.length) runs.push(run);
 
+          const points = runs.flat();
+          /** One month in this panel. Drawn as a deliberate marker rather
+           *  than the ordinary 4px dot, which alone on a six-month axis is
+           *  indistinguishable from a rendering fault. */
+          const lone = points.length === 1;
+
           return (
             <g key={s.name}>
-              {runs
-                .filter((r) => r.length > 1)
-                .map((r, ri) => (
-                  <polyline
-                    key={ri}
-                    fill="none"
+              {/* Segment by segment rather than one polyline per run: a
+                  segment is dashed when the month it ARRIVES at is still
+                  settling, which a single polyline cannot express. */}
+              {runs.map((r, ri) =>
+                r.slice(1).map((p, k) => (
+                  <line
+                    key={`${ri}-${k}`}
+                    x1={x(r[k].i)}
+                    y1={y(r[k].v)}
+                    x2={x(p.i)}
+                    y2={y(p.v)}
                     stroke={s.colour!}
                     strokeWidth={2}
-                    strokeLinejoin="round"
                     strokeLinecap="round"
-                    points={r.map((p) => `${x(p.i)},${y(p.v)}`).join(" ")}
+                    strokeDasharray={p.provisional ? "7 5" : undefined}
                   />
-                ))}
-              {runs.flat().map((p) => (
-                <circle
-                  key={p.month}
-                  cx={x(p.i)}
-                  cy={y(p.v)}
-                  r={4}
-                  fill={s.colour!}
-                  stroke="var(--card)"
-                  strokeWidth={2}
-                  style={{ cursor: "pointer" }}
-                  onFocus={() => undefined}
-                  tabIndex={-1}
-                  onMouseOver={(e) => {
-                    // Position from real client rects rather than re-deriving
-                    // the viewBox scale — the SVG is fluid width.
-                    const dot = e.currentTarget.getBoundingClientRect();
-                    const root = e.currentTarget
-                      .closest("[data-trend-root]")
-                      ?.getBoundingClientRect();
-                    if (!root) return;
-                    onHover({
-                      artist: s.name,
-                      month: p.month,
-                      value: metric.fmt(p.v),
-                      posts: p.posts,
-                      paidExcluded: p.paidExcluded,
-                      x: dot.left - root.left + dot.width / 2,
-                      y: dot.top - root.top,
-                    });
-                  }}
-                />
+                )),
+              )}
+              {points.map((p) => (
+                <g key={p.month}>
+                  {/* Provisional: a dashed ring in the series colour around a
+                      marker that stays filled. Hollowing the marker instead
+                      would make a lone settling point read as an outline
+                      artefact rather than as this account's latest month. */}
+                  {p.provisional && (
+                    <circle
+                      cx={x(p.i)}
+                      cy={y(p.v)}
+                      r={lone ? 10 : 8}
+                      fill="none"
+                      stroke={s.colour!}
+                      strokeWidth={2}
+                      strokeDasharray="3 3"
+                      pointerEvents="none"
+                    />
+                  )}
+                  <circle
+                    cx={x(p.i)}
+                    cy={y(p.v)}
+                    r={lone ? 6 : 4}
+                    fill={s.colour!}
+                    stroke="var(--card)"
+                    strokeWidth={2}
+                    style={{ cursor: "pointer" }}
+                    onFocus={() => undefined}
+                    tabIndex={-1}
+                    onMouseOver={(e) => {
+                      // Position from real client rects rather than
+                      // re-deriving the viewBox scale — the SVG is fluid.
+                      const dot = e.currentTarget.getBoundingClientRect();
+                      const root = e.currentTarget
+                        .closest("[data-trend-root]")
+                        ?.getBoundingClientRect();
+                      if (!root) return;
+                      onHover({
+                        artist: s.name,
+                        month: p.month,
+                        value: metric.fmt(p.v),
+                        posts: p.posts,
+                        paidExcluded: p.paidExcluded,
+                        provisional: p.provisional,
+                        x: dot.left - root.left + dot.width / 2,
+                        y: dot.top - root.top,
+                        rootWidth: root.width,
+                      });
+                    }}
+                  />
+                </g>
               ))}
             </g>
           );
@@ -610,7 +785,12 @@ function makeScale(lo: number, hi: number, log: boolean) {
     // A narrow range can contain fewer than two 1/2/5 steps. Fall back to the
     // data's own bounds rather than adding raw domain endpoints, which land a
     // pixel from the surviving step and render as a collided pair.
-    if (ticks.length < 2) ticks = [lo, hi];
+    //
+    // A single-point series is the degenerate case of that: lo === hi, so the
+    // fallback would draw the same tick and the same label twice, one exactly
+    // on top of the other. One tick is correct there — the panel is showing
+    // one value, and there is no range to label.
+    if (ticks.length < 2) ticks = lo === hi ? [lo] : [lo, hi];
     ticks = ticks.map((t) => (t >= 100 ? Math.round(t) : Math.round(t * 10) / 10));
     return {
       ticks,
@@ -634,11 +814,15 @@ function TrendTable({
   months,
   rows,
   series,
+  provisionalMonths,
 }: {
   metric: (typeof METRICS)[number];
   months: string[];
   rows: TrendRow[];
   series: { name: string; colour: string | null }[];
+  /** Marked in the header, because dashes are a chart-only cue and this view
+   *  exists precisely for people the chart does not serve. */
+  provisionalMonths: Set<string>;
 }) {
   const byKey = new Map<string, TrendRow>();
   for (const r of rows) byKey.set(`${r.brand_name}|${r.month}`, r);
@@ -653,7 +837,21 @@ function TrendTable({
             <tr>
               <th>Account</th>
               {months.map((m) => (
-                <th key={m}>{MONTH_LABEL(m)}</th>
+                <th key={m}>
+                  {MONTH_LABEL(m)}
+                  {provisionalMonths.has(m) && (
+                    <span
+                      style={{
+                        display: "block",
+                        fontWeight: 400,
+                        textTransform: "none",
+                        letterSpacing: 0,
+                      }}
+                    >
+                      settling
+                    </span>
+                  )}
+                </th>
               ))}
             </tr>
           </thead>

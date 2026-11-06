@@ -142,6 +142,9 @@ export const MOCK_ACCOUNT_SCORES: AccountScore[] = [
  * series path (selector, colour assignment, gaps, log spread) can be exercised
  * without a session. Deliberately includes missing months and a 400x spread
  * between the biggest and smallest account.
+ *
+ * The last month is provisional, so mock mode exercises the dashed treatment
+ * and the settling line without waiting for a real calendar.
  */
 const TREND_MONTHS = [
   "2026-02-01",
@@ -166,7 +169,17 @@ const TREND_SHAPE: [string, string, (number | null)[]][] = [
   ["SOAP", "instagram", [8800, 14200, 26000, 41000, 62000, 55000]],
   ["Far Caspian", "instagram", [21000, 19400, 26300, null, 31200, 28900]],
   ["Twin Atlantic", "instagram", [9200, 9949, null, 11400, 10800, 12100]],
+  // Two single-month series, on the platform with few enough accounts that
+  // both fall inside the default five — this is the case that used to render
+  // as a bare dot and read as a rendering failure. One of them is the
+  // provisional month, so a lone point and the dashed treatment coincide.
+  ["Pale Blue Eyes", "instagram", [null, null, null, null, null, 19000]],
+  ["Cable Street", "instagram", [null, null, 8200, null, null, null]],
 ];
+
+/** The last fixture month stands in for the month that has ended but not
+ *  settled. Real rows get this from the view's own calendar. */
+const PROVISIONAL_MONTH = TREND_MONTHS[TREND_MONTHS.length - 1];
 
 export const MOCK_TREND: TrendRow[] = TREND_SHAPE.flatMap(
   ([brand, network, values]) =>
@@ -191,6 +204,7 @@ export const MOCK_TREND: TrendRow[] = TREND_SHAPE.flatMap(
               // Mostly zero, so the tooltip's non-zero branch is exercised in
               // mock mode without appearing on every point.
               paid_excluded: (i * 5 + brand.length) % 7 === 0 ? 1 + (i % 2) : 0,
+              is_provisional: TREND_MONTHS[i] === PROVISIONAL_MONTH,
             },
           ],
     ),
