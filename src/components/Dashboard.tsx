@@ -33,12 +33,20 @@ import PostRow from "./PostRow";
 import BrandAdmin from "./BrandAdmin";
 import PlatformFilter, { RollupNote, RollupStat } from "./PlatformFilter";
 import { onPlatform, platformLock, type PlatformFilterKey } from "../lib/platforms";
+import LabelFilter, { AllLabelsNote } from "./LabelFilter";
+import {
+  ALL_LABELS,
+  onLabel,
+  reselectScope,
+  scopeLabel,
+  type LabelScope,
+} from "../lib/labels";
 import { Section, Empty } from "./Section";
 import { LabelTags } from "./BrandRow";
 import { SkipRatePanel } from "./SkipRateExplainer";
 import { AppBar, TopStripe } from "./Chrome";
 import TrendChart from "./TrendChart";
-import { brandPath, labelPath, navigate } from "../lib/router";
+import { brandPath, navigate } from "../lib/router";
 
 const PAGE_SIZE = 10;
 const PAGE_MAX = 50;
@@ -65,6 +73,9 @@ export default function Dashboard() {
   const [explainer, setExplainer] = useState<null | "score" | "skip">(null);
   const [trend, setTrend] = useState<TrendRow[]>([]);
   const [platform, setPlatform] = useState<PlatformFilterKey>("all");
+  // ALL is the default, and it is a scope of its own rather than a label that
+  // happens to hold everything — see lib/labels.ts.
+  const [scope, setScope] = useState<LabelScope>(ALL_LABELS);
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +105,9 @@ export default function Dashboard() {
       setPeriod(pd);
       setBrands(allBrands);
       setLabels(allLabels);
+      // The scope holds the Label row it was chosen from, so re-resolve it
+      // against this fetch; a label that has been deleted falls back to ALL.
+      setScope((s) => reselectScope(s, allLabels));
       const ids = [
         ...new Set([...fl, ...re, ...be, ...tv].map((p) => p.external_id)),
       ];
@@ -120,20 +134,37 @@ export default function Dashboard() {
     load();
   }, [load]);
 
-  /* Every post section reads a platform-filtered copy. The views carry
-   * network and content_type already, so this is a slice of what was
-   * fetched, not another request. */
+  /* Every post section reads a label- then platform-narrowed copy. The views
+   * carry labels, network and content_type already, so both filters are a
+   * slice of what was fetched, not another request.
+   *
+   * The two are independent: a label narrows which accounts, a platform
+   * narrows which of their posts, and either can be on alone. */
   const filtered = platform !== "all";
   const fLeading = useMemo(
-    () => (leading === null ? null : onPlatform(leading, platform)),
-    [leading, platform],
+    () => (leading === null ? null : onPlatform(onLabel(leading, scope), platform)),
+    [leading, scope, platform],
   );
-  const fRecent = useMemo(() => onPlatform(recent, platform), [recent, platform]);
-  const fBest = useMemo(() => onPlatform(best, platform), [best, platform]);
+  const fRecent = useMemo(
+    () => onPlatform(onLabel(recent, scope), platform),
+    [recent, scope, platform],
+  );
+  const fBest = useMemo(
+    () => onPlatform(onLabel(best, scope), platform),
+    [best, scope, platform],
+  );
   const fTopViews = useMemo(
-    () => onPlatform(topViews, platform),
-    [topViews, platform],
+    () => onPlatform(onLabel(topViews, scope), platform),
+    [topViews, scope, platform],
   );
+  /* mx_account_scores carries labels, so the leaderboard and the two tiles
+   * fed by it DO follow the label selection. They cannot follow the platform
+   * filter — see PlatformFilter — which is why they keep RollupStat. */
+  const fScores = useMemo(() => onLabel(scores, scope), [scores, scope]);
+  /* A label that exists with no brands tagged is an ordinary state. Showing
+   * ten empty sections would read as breakage, so the page says so once. */
+  const emptyLabel = scopeLabel(scope)?.brands === 0;
+  const fTrend = useMemo(() => onLabel(trend, scope), [trend, scope]);
 
   const latestArtists = useMemo(
     () => fRecent.filter((p) => p.brand_type === "artist"),
@@ -166,14 +197,14 @@ export default function Dashboard() {
       (m, p) => (p.views_multiple != null && (m == null || p.views_multiple > m) ? p.views_multiple : m),
       null,
     );
-    const views = scores.reduce((s, a) => s + (a.total_views ?? 0), 0);
+    const views = fScores.reduce((s, a) => s + (a.total_views ?? 0), 0);
     return {
       leadingCount: fLeading?.length ?? 0,
       topMult,
       views,
-      accounts: scores.length,
+      accounts: fScores.length,
     };
-  }, [fLeading, scores]);
+  }, [fLeading, fScores]);
 
   const rowProps = { notes, interventions, streaming, openId, setOpenId, skipByBrand };
   const loaded = leading !== null;
@@ -211,6 +242,20 @@ export default function Dashboard() {
 
         {loaded && (
           <>
+            <LabelFilter labels={labels} value={scope} onChange={setScope} />
+
+            {/* A label that exists with no brands tagged yet: one plain
+                statement, not ten empty sections and not an error. Slam Dunk
+                Records is in this state today. */}
+            {emptyLabel ? (
+            <div className="empty">
+              <b>No brands assigned to this label yet.</b>
+              <div style={{ marginTop: 6 }}>
+                Tag brands from the Brands panel and this board will fill in.
+              </div>
+            </div>
+            ) : (
+            <>
             <PlatformFilter value={platform} onChange={setPlatform} />
 
             <div className="kpis">
@@ -238,33 +283,6 @@ export default function Dashboard() {
                 filtered={filtered}
               />
             </div>
-
-            {labels.length > 0 && (
-              <div className="card">
-                <div className="eyebrow">
-                  <span>Labels</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {labels.map((l) => (
-                    <a
-                      key={l.label_id}
-                      href={labelPath(l.slug)}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(labelPath(l.slug));
-                      }}
-                      className="btn"
-                      style={{ textDecoration: "none" }}
-                    >
-                      {l.name}{" "}
-                      <span className="num" style={{ color: "var(--muted)" }}>
-                        {l.brands}
-                      </span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="card">
               <div className="eyebrow">
@@ -295,6 +313,12 @@ export default function Dashboard() {
               {explainer === "skip" && (
                 <>
                   <hr className="r" />
+                  <AllLabelsNote scope={scope}>
+                    The roster median, best and worst below are one
+                    whole-roster figure from mx_skip_roster, which has no brand
+                    or label columns to slice — so they cover every label
+                    whatever this page is narrowed to.
+                  </AllLabelsNote>
                   <SkipRatePanel roster={skipRoster} />
                 </>
               )}
@@ -399,7 +423,7 @@ export default function Dashboard() {
               timescale={
                 filtered ? `${windowLabel} · all platforms` : windowLabel
               }
-              count={scores.length}
+              count={fScores.length}
               subtitle="Each account's multiples added together over the period — so posting more good content scores higher than one lucky post. Reach and consistency, not a single spike."
             >
               <RollupNote filtered={filtered}>
@@ -408,7 +432,7 @@ export default function Dashboard() {
                 says. Narrowing it would mean re-scoring per platform in the
                 database, not slicing rows here.
               </RollupNote>
-              {scores.length === 0 ? (
+              {fScores.length === 0 ? (
                 <Empty>Nothing scored yet.</Empty>
               ) : (
                 <div className="scroll">
@@ -423,7 +447,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {scores.map((a) => (
+                      {fScores.map((a) => (
                         <tr key={a.brand_name}>
                           <td>
                             <a
@@ -458,14 +482,18 @@ export default function Dashboard() {
             </Section>
 
             <TrendChart
-              rows={trend}
+              rows={fTrend}
               showArtistSelector
               platformKey={platformLock(platform)}
             />
+            </>
+            )}
           </>
         )}
       </div>
 
+      {/* Deliberately the unfiltered brands and labels: this is where a brand
+          gets tagged, so it has to list the ones that carry no label yet. */}
       {adminOpen && (
         <BrandAdmin
           brands={brands}

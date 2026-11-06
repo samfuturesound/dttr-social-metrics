@@ -1,7 +1,8 @@
 # DTTR Social Metrics
 
-Internal morning glance page for Dance to the Radio's social accounts. Answers
-one question: **what's performing unusually well and needs a reaction today.**
+Internal morning glance page for the social accounts Future Sound looks after
+— Dance to the Radio, Eject Records and whatever is added next. Answers one
+question: **what's performing unusually well and needs a reaction today.**
 
 Deployed at `dttrmetrics.futuresoundartistservices.com` (Vercel). Reads the
 `mx_*` views in its own Supabase project `pvyyaiaaqikvilukcqva`. It used to
@@ -88,6 +89,62 @@ regardless of label — labels slice the roster, they don't partition it.
 - `/label/[slug]` is the internal label view: each brand's per-platform
   medians *with* roster ranks, then the usual post and engagement sections.
 - `/share/label/[token]` is the public equivalent — see below.
+
+### The label selector, and why All is not a label
+
+The board carries a page-level selector: **All**, then one option per label in
+`mx_labels`, in name order. It narrows every section below it — Leading,
+Latest, Best, Most viewed, the leaderboard and the trend chart — client-side
+on the `labels` column the views already return, so a selection costs no round
+trip. It sits beside the platform filter and the two are independent: a label
+narrows which accounts, a platform narrows which of their posts.
+
+**All is a scope of its own, not a label.** Until the label data was fixed
+"Dance to the Radio" carried every brand on the roster, so filtering to that
+label and showing everything were the same page and nothing had to tell them
+apart. They are now different — Dance to the Radio carries its own nine active
+artists — so [`LabelScope`](src/lib/labels.ts) models the two as different
+shapes. An All scope holds no label, which is what stops any code path
+reaching a label's name, slug or share token from it: `scopeLabel` returns
+null and every caller has to handle that. A held scope is also re-resolved
+against each `mx_labels` fetch, and a label that has been deleted falls back
+to All rather than to a neighbouring label.
+
+The options are data. Nothing in `lib/labels.ts` or `LabelFilter.tsx` names a
+label — [a test asserts that](src/__tests__/label-scope.test.ts) — so a label
+created in the Brands panel appears on the next load with no code change,
+**including one with no brands yet**. Selecting an empty label shows one plain
+statement ("No brands assigned to this label yet"), not ten empty sections and
+not an error: Slam Dunk Records is in that state today, and a new label would
+look broken if it were hidden until someone tagged a brand.
+
+One figure on the board cannot follow the selector. `mx_skip_roster` is a
+single whole-roster skip median with no brand or label column to slice, so it
+is marked **All labels** in place, the same treatment and for the same reasons
+as the platform rollups below. Everything else on the board — including the
+leaderboard and the two tiles fed by `mx_account_scores` — does carry `labels`
+and does follow it.
+
+The selector is internal-only, and so is the brand/label page it links to. The
+share RPCs return no label column at all, so a selector on a share route would
+have nothing to filter on even if it belonged there; a label share link is
+already scoped to one label by its token. `share-assist-isolation.test.tsx`
+asserts no share page imports it.
+
+### What a label share link actually covers
+
+`mx_label_share_summary` and `mx_label_share_posts` match on label membership
+alone, with no `active` filter, so a label share covers **every brand carrying
+the label that has data** — not just the active ones. For Dance to the Radio
+today that is 11 accounts: the 9 active artists plus Lofi Bloom and Nature,
+two inactive theme accounts that still have posts on file. The label page's
+Brands tile counts all 15 tagged brands and its Artists tile counts 9, so the
+three numbers are each correct about different things.
+
+`mx_label_share_posts` reads `post_detail_mv`, which is refreshed by
+`mx_refresh_derived()` on a 03:30 cron. **A label change is not visible on a
+share route until that refresh**: between the two, a share link lists posts
+under the labels the brands used to carry.
 
 ## Public share links
 

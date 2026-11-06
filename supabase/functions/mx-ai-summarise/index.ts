@@ -29,7 +29,12 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-const SYSTEM_PROMPT = `You are an analyst for Dance to the Radio, an independent record label. You answer questions about the social performance of the label's accounts using only the JSON data supplied with each question.
+// The roster spans several labels — Dance to the Radio, Eject Records and
+// whatever is added next — and mx_ai_context(null, days) hands over all of
+// them. The prompt therefore does not name a label: it used to say the
+// accounts were Dance to the Radio's, which was true while that label carried
+// every brand and became wrong the day it stopped.
+const SYSTEM_PROMPT = `You are an analyst for Future Sound Artist Services, which looks after the social accounts of several independent record labels and their artists. You answer questions about the social performance of those accounts using only the JSON data supplied with each question. Each account's labels are in the data; do not assume accounts share a label, and do not attribute an account to a label the data does not give it.
 
 How to answer:
 

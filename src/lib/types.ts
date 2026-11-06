@@ -5,6 +5,16 @@ export interface FlaggedPost {
   brand_name: string;
   brand_type: BrandType;
   owner: string | null;
+  /**
+   * The brand's labels, as mx_leading, mx_recent, mx_best, mx_top_views and
+   * mx_post_detail all return them.
+   *
+   * The column was always there; this type left it out, which is why nothing
+   * on the board could be narrowed by label. That was harmless while one label
+   * carried every brand and a label filter would have been a no-op. It is not
+   * harmless now.
+   */
+  labels: string[];
   network: string;
   content_type: string;
   caption: string | null;

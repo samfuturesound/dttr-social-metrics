@@ -162,6 +162,63 @@ describe("share routes carry no page-level platform filter", () => {
 });
 
 /**
+ * The page-level LABEL selector is internal too, and for a further reason of
+ * its own: the share RPCs return no label column at all, so a selector on a
+ * share page would have nothing to filter on even if it belonged there.
+ *
+ * A label share link is already scoped to one label by its token. A control
+ * offering to switch label on that page would either do nothing or imply the
+ * reader can see labels the token does not cover.
+ */
+describe("share routes carry no label selector", () => {
+  for (const file of SHARE_ROUTES) {
+    test(`${file} does not import LabelFilter`, () => {
+      expect(/from\s+["'].*LabelFilter["']/.test(src(file))).toBe(false);
+    });
+
+    test(`${file} renders no selector and no label caveat`, () => {
+      const s = src(file);
+      expect(/<LabelFilter\b/.test(s)).toBe(false);
+      expect(/\bAllLabelsNote\b/.test(s)).toBe(false);
+      expect(/all labels/i.test(s)).toBe(false);
+      // No label scope reaches these pages at all.
+      expect(/\bLabelScope\b|\bALL_LABELS\b|\bonLabel\b/.test(s)).toBe(false);
+    });
+  }
+
+  test("only the board imports LabelFilter", () => {
+    // The brand and label pages are single-scope by definition — one brand, or
+    // one label — so a label selector has nothing to offer there either.
+    const allowed = new Set(["Dashboard.tsx"]);
+    const candidates = [
+      "Dashboard.tsx",
+      "BrandPage.tsx",
+      "LabelPage.tsx",
+      ...SHARE_ROUTES,
+    ];
+    const importers = candidates.filter((f) =>
+      /from\s+["'].*LabelFilter["']/.test(src(f)),
+    );
+    for (const f of importers) expect(allowed.has(f)).toBe(true);
+    expect(importers.length).toBe(1);
+  });
+
+  test("the share bar names no label", () => {
+    // It used to print "Dance to the Radio" over every share page, including
+    // an Eject Records artist's. The brand or label a link covers is named by
+    // the page head, from the token.
+    const s = src("Chrome.tsx");
+    const bar = s.slice(s.indexOf("export function ShareBar"));
+    const code = bar
+      .split("\n")
+      .filter((l) => !/^\s*(\*\/?|\/\/|\/\*)/.test(l))
+      .join("\n");
+    expect(code).not.toContain("Dance to the Radio");
+    expect(code).toContain("Social Metrics");
+  });
+});
+
+/**
  * The label pair specifically. LabelPage and LabelSharePage render the SAME
  * BrandRow component, so nothing about the row itself distinguishes internal
  * from public — the only thing that does is which caller passes the assist

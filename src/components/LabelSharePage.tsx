@@ -265,15 +265,31 @@ export default function LabelSharePage({ token }: { token: string }) {
         </p>
 
       {posts.length === 0 ? (
+        /* Two different empty states. A label with brands whose posts haven't
+           been measured yet is waiting for the overnight pull; a label with no
+           brands on it has nothing to wait for, and telling its reader to
+           expect figures tomorrow would be a promise nobody can keep. */
         <div className="card" style={{ maxWidth: 460 }}>
           <div className="eyebrow">
             <span>No data yet</span>
           </div>
-          <h2 style={{ fontSize: 22 }}>Nothing to show yet</h2>
-          <p className="note">
-            These accounts were added recently. Figures appear after the next
-            overnight update — the link itself is fine, so keep it.
-          </p>
+          {byBrand.length === 0 ? (
+            <>
+              <h2 style={{ fontSize: 22 }}>No accounts on this label yet</h2>
+              <p className="note">
+                Nothing has been added to {labelName} so far. The link itself is
+                fine — it will fill in once accounts are on the label.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 style={{ fontSize: 22 }}>Nothing to show yet</h2>
+              <p className="note">
+                These accounts were added recently. Figures appear after the
+                next overnight update — the link itself is fine, so keep it.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>

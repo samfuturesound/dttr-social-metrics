@@ -106,6 +106,15 @@ export default function LabelPage({ slug }: { slug: string }) {
           return;
         }
         setLabel(found);
+        if (found.brands === 0) {
+          // Nothing to fetch. No brand carries this label, so post_detail and
+          // brand_platform_ranks can only come back empty — and skipping the
+          // round trip also stops a failed fetch replacing the empty state
+          // with an error on a label that simply has no brands yet.
+          setPosts([]);
+          setPlatforms([]);
+          return;
+        }
         await reload(found.name);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -287,7 +296,7 @@ export default function LabelPage({ slug }: { slug: string }) {
       {/* A label with no brands yet is an ordinary state, not an error. */}
       {!notFound && posts !== null && label && label.brands === 0 && (
         <div className="empty">
-          <b>No brands tagged with this label yet.</b>
+          <b>No brands assigned to this label yet.</b>
           <div style={{ marginTop: 6 }}>
             Tag brands from the Brands panel and they&rsquo;ll appear here.
           </div>

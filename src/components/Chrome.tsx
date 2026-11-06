@@ -86,6 +86,12 @@ export function AppBar(props: {
 /**
  * Public share bar. No nav, no links back into the dashboard — the share
  * pages are a dead end by design, and that predates this restyle.
+ *
+ * The title is the app's name, not a label's. It used to read "Dance to the
+ * Radio" on every share page, which was true enough while that label carried
+ * every brand; now it would put the wrong label over an Eject Records
+ * artist's own figures. The page head below names the brand or label the link
+ * actually covers, which is the thing the reader needs.
  */
 export function ShareBar({ subtitle }: { subtitle?: string }) {
   return (
@@ -93,7 +99,7 @@ export function ShareBar({ subtitle }: { subtitle?: string }) {
       <div className="inner">
         <Logo />
         <span className="apptitle">
-          Dance to the Radio
+          Social Metrics
           {subtitle && (
             <span style={{ color: "var(--muted)", fontWeight: 500 }}>
               {" "}

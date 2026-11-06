@@ -5,8 +5,10 @@ import {
   MOCK_ACCOUNT_SCORES,
   MOCK_BRANDS,
   MOCK_FLAGGED,
+  MOCK_LABELS,
   MOCK_PERIOD,
   MOCK_TREND,
+  mockLabelsOf,
 } from "./mock";
 import type {
   AccountScore,
@@ -325,7 +327,10 @@ export async function fetchBrandSummary(
 ): Promise<BrandSummary | null> {
   if (MOCK) {
     return {
-      brand_id: 1, brand_name: brand, labels: ["Dance to the Radio"],
+      // Derived, not written out: this used to name one label whatever brand
+      // was asked for, so in mock mode an Eject Records artist's page showed
+      // Dance to the Radio tags.
+      brand_id: 1, brand_name: brand, labels: mockLabelsOf(brand),
       brand_type: "artist", owner: "Sam",
       niche: null, active: true, metricool_blog_id: "0",
       posts_all_time: 75, views_all_time: 1294142, posts_3m: 16,
@@ -643,7 +648,10 @@ export async function fetchBrandPlatformRanks(
 /* ---------- Labels (many-to-many) ---------- */
 
 export async function fetchLabels(): Promise<Label[]> {
-  if (MOCK) return [];
+  // Mock mode returned [] here, which hid every label-driven control instead
+  // of exercising it — including the page selector, whose whole point is that
+  // its options come from this call.
+  if (MOCK) return MOCK_LABELS;
   const { data, error } = await supabase
     .from("mx_labels")
     .select("*")

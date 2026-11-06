@@ -1,7 +1,9 @@
 import type {
   AccountScore,
   Brand,
+  BrandType,
   FlaggedPost,
+  Label,
   Period,
   TrendRow,
 } from "./types";
@@ -12,6 +14,39 @@ import type {
 const tile = (fill: string) =>
   `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' fill='%23${fill}'/%3E%3C/svg%3E`;
 
+/* ---------- Labels ----------------------------------------------------- */
+
+/**
+ * Label membership for the mock roster, in ONE place.
+ *
+ * Every fixture in this file used to carry `labels: ["Dance to the Radio"]`
+ * written out on the row, which encoded the very assumption the app had to
+ * stop making: that one label holds the whole roster. With the fixtures saying
+ * so, mock mode could not show a label filter doing anything, and a test
+ * written against them would pass whether or not the filter worked.
+ *
+ * So membership is declared once, here, and every fixture derives from it. The
+ * shape mirrors production after the fix: most brands on Dance to the Radio,
+ * two on Eject Records, and a third label with no brands at all.
+ */
+export const DTTR = "Dance to the Radio";
+export const EJECT = "Eject Records";
+export const SLAM_DUNK = "Slam Dunk Records";
+
+/** Brands not listed here fall to Dance to the Radio, as in production. */
+const LABELS_BY_BRAND: Record<string, string[]> = {
+  "Reece Bibby": [EJECT],
+  SOAP: [EJECT],
+};
+
+export function mockLabelsOf(brand: string): string[] {
+  return LABELS_BY_BRAND[brand] ?? [DTTR];
+}
+
+const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/* ---------- Posts ------------------------------------------------------ */
+
 const base = {
   owner: "Sam",
   engagement_pct: null as number | null,
@@ -21,7 +56,7 @@ const base = {
   is_assisted: false,
 };
 
-export const MOCK_FLAGGED: FlaggedPost[] = [
+const FLAGGED: Omit<FlaggedPost, "labels">[] = [
   {
     ...base,
     external_id: "mock-lobjectif-65",
@@ -97,6 +132,44 @@ export const MOCK_FLAGGED: FlaggedPost[] = [
     assist_kinds: ["meta_ads"],
     is_assisted: true,
   },
+  // Two Eject Records posts, so every board section differs between All and
+  // Dance to the Radio in mock mode — the difference the whole change is about.
+  {
+    ...base,
+    external_id: "mock-soap-tt-12",
+    brand_name: "SOAP",
+    brand_type: "artist",
+    network: "tiktok",
+    content_type: "posts",
+    caption: "soundcheck, Manchester",
+    permalink: "https://www.tiktok.com/@example/video/4",
+    thumbnail_url: tile("9fa8b4"),
+    published_at: "2026-08-04",
+    age_days: 7,
+    views: 187525,
+    median_views: 31000,
+    views_multiple: 6.1,
+    skip_rate: null,
+    avg_watch_seconds: null,
+  },
+  {
+    ...base,
+    external_id: "mock-reece-reel-08",
+    brand_name: "Reece Bibby",
+    brand_type: "artist",
+    network: "instagram",
+    content_type: "reels",
+    caption: "writing session, take four",
+    permalink: "https://www.instagram.com/reel/example3/",
+    thumbnail_url: tile("b4a89f"),
+    published_at: "2026-07-30",
+    age_days: 12,
+    views: 4100,
+    median_views: 1950,
+    views_multiple: 2.1,
+    skip_rate: 41.2,
+    avg_watch_seconds: 7.4,
+  },
   {
     ...base,
     external_id: "mock-lofi-26",
@@ -117,13 +190,55 @@ export const MOCK_FLAGGED: FlaggedPost[] = [
   },
 ];
 
-export const MOCK_BRANDS: Brand[] = [
-  { id: "b1", metricool_blog_id: 111, labels: ["Dance to the Radio"], name: "Dance to the Radio", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b2", metricool_blog_id: 222, labels: ["Dance to the Radio"], name: "L'objectif", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b3", metricool_blog_id: 333, labels: ["Dance to the Radio"], name: "Twin Atlantic", brand_type: "artist", owner: "Sam", active: true },
-  { id: "b4", metricool_blog_id: 444, labels: ["Dance to the Radio"], name: "Lofi Bloom", brand_type: "theme", owner: "Sam", active: true },
-  { id: "b5", metricool_blog_id: 555, labels: ["Dance to the Radio"], name: "Night Drives", brand_type: "theme", owner: "Sam", active: false },
+export const MOCK_FLAGGED: FlaggedPost[] = FLAGGED.map((p) => ({
+  ...p,
+  labels: mockLabelsOf(p.brand_name),
+}));
+
+/* ---------- Brands ----------------------------------------------------- */
+
+const BRANDS: {
+  id: string;
+  metricool_blog_id: number;
+  name: string;
+  brand_type: BrandType;
+  active: boolean;
+}[] = [
+  { id: "b1", metricool_blog_id: 111, name: "Dance to the Radio", brand_type: "artist", active: true },
+  { id: "b2", metricool_blog_id: 222, name: "L'objectif", brand_type: "artist", active: true },
+  { id: "b3", metricool_blog_id: 333, name: "Twin Atlantic", brand_type: "artist", active: true },
+  { id: "b4", metricool_blog_id: 444, name: "Lofi Bloom", brand_type: "theme", active: true },
+  { id: "b5", metricool_blog_id: 555, name: "Night Drives", brand_type: "theme", active: false },
+  { id: "b6", metricool_blog_id: 666, name: "SOAP", brand_type: "artist", active: true },
+  { id: "b7", metricool_blog_id: 777, name: "Reece Bibby", brand_type: "artist", active: true },
 ];
+
+export const MOCK_BRANDS: Brand[] = BRANDS.map((b) => ({
+  ...b,
+  owner: "Sam",
+  labels: mockLabelsOf(b.name),
+}));
+
+/**
+ * mx_labels, counted from the brands above rather than written out, so the
+ * tiles on a label page and the counts in the selector cannot drift from the
+ * roster they describe. Slam Dunk Records is here with no brands on purpose:
+ * an empty label must still be selectable and must still render.
+ */
+export const MOCK_LABELS: Label[] = [DTTR, EJECT, SLAM_DUNK].map(
+  (name, i) => {
+    const mine = MOCK_BRANDS.filter((b) => b.labels.includes(name));
+    return {
+      label_id: i + 1,
+      name,
+      slug: slug(name),
+      brands: mine.length,
+      active_brands: mine.filter((b) => b.active).length,
+      artist_brands: mine.filter((b) => b.brand_type === "artist").length,
+      theme_brands: mine.filter((b) => b.brand_type === "theme").length,
+    };
+  },
+);
 
 export const MOCK_PERIOD: Period = {
   period_start: "2026-07-12",
@@ -131,11 +246,18 @@ export const MOCK_PERIOD: Period = {
   period_days: 30,
 };
 
-export const MOCK_ACCOUNT_SCORES: AccountScore[] = [
-  { brand_name: "L'objectif", labels: ["Dance to the Radio"], brand_type: "artist", owner: "Sam", posts: 28, total_score: 93.9, avg_multiple: 3.4, total_views: 120453, best_multiple: 65.7 },
-  { brand_name: "Tommy Ashby - The Birds", labels: ["Dance to the Radio"], brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
-  { brand_name: "Lofi Bloom", labels: ["Dance to the Radio"], brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
+const SCORES: Omit<AccountScore, "labels">[] = [
+  { brand_name: "SOAP", brand_type: "artist", owner: "Sam", posts: 31, total_score: 112.4, avg_multiple: 3.6, total_views: 402118, best_multiple: 6.1 },
+  { brand_name: "L'objectif", brand_type: "artist", owner: "Sam", posts: 28, total_score: 93.9, avg_multiple: 3.4, total_views: 120453, best_multiple: 65.7 },
+  { brand_name: "Tommy Ashby - The Birds", brand_type: "artist", owner: "Sam", posts: 36, total_score: 47.5, avg_multiple: 1.3, total_views: 28414, best_multiple: 3.1 },
+  { brand_name: "Reece Bibby", brand_type: "artist", owner: "Sam", posts: 22, total_score: 34.1, avg_multiple: 1.6, total_views: 41980, best_multiple: 2.1 },
+  { brand_name: "Lofi Bloom", brand_type: "theme", owner: "Sam", posts: 4, total_score: 6.1, avg_multiple: 1.5, total_views: 5120, best_multiple: 2.6 },
 ];
+
+export const MOCK_ACCOUNT_SCORES: AccountScore[] = SCORES.map((s) => ({
+  ...s,
+  labels: mockLabelsOf(s.brand_name),
+}));
 
 /**
  * Trend fixtures for VITE_MOCK — shaped like mx_trend so the chart's multi
@@ -189,7 +311,7 @@ export const MOCK_TREND: TrendRow[] = TREND_SHAPE.flatMap(
         : [
             {
               brand_name: brand,
-              labels: ["Dance to the Radio"],
+              labels: mockLabelsOf(brand),
               network,
               content_type: network === "instagram" ? "reels" : "posts",
               month: TREND_MONTHS[i],
